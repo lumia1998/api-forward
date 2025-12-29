@@ -83,7 +83,7 @@ function loadConfig() {
                     console.log('Configuration loaded from local file and will be saved to database.');
 
                     // 将本地配置写入数据库
-                    const insertStmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime("now"))');
+                    const insertStmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))');
                     insertStmt.run(JSON.stringify(currentConfig));
                     console.log('Local configuration saved to database.');
                     configLoaded = true;
@@ -103,7 +103,7 @@ function loadConfig() {
 
         // 将默认配置保存到数据库
         try {
-            const insertStmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime("now"))');
+            const insertStmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))');
             insertStmt.run(JSON.stringify(currentConfig));
             console.log('Default configuration saved to database.');
         } catch (error) {
@@ -210,7 +210,7 @@ app.post('/config', checkAdminAuth, (req, res) => {
         // 保存到SQLite数据库
         let dbSuccess = false;
         try {
-            const stmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime("now"))');
+            const stmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))');
             stmt.run(JSON.stringify(currentConfig));
             console.log('Configuration saved to SQLite database.');
             dbSuccess = true;
