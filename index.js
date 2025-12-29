@@ -2391,9 +2391,9 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         console.log('Configuration loaded successfully.');
 
         // 启动服务器
-        app.listen(PORT, () => {
-            console.log(`API Forwarder running on http://localhost:${PORT}`);
-            console.log(`Admin interface available at http://localhost:${PORT}/admin`);
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log(`API Forwarder running on http://0.0.0.0:${PORT}`);
+            console.log(`Admin interface available at http://0.0.0.0:${PORT}/admin`);
         });
     } catch (error) {
         console.error('Failed to start server:', error);
