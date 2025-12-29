@@ -734,12 +734,7 @@ app.get('/', (req, res) => {
     基础URL：${baseURL}
     可用路径（不要修改路径格式）：
 ${pathFunctions.map(path => `    - ${path}`).join('\n')}
-    特殊说明：
-    1. AI绘图路径(/flux, /turbo)需要tags参数
-    2. 生成tags时，将用户描述转化为50个左右的关键词，用英文逗号分隔
-    3. 所有参数必须进行URL编码
-    4. 严禁生成色情内容
-    示例：如果用户请求“给我一张山水画”，应返回：${baseURL}/flux?tags=mountains%2Cwater%2Clandscape%2Ctraditional%2Cchinese%2Cpainting%2Cscenery}}`;
+    }}`;
 
 
     // Sort groups
