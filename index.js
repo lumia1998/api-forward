@@ -1098,33 +1098,43 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         :root {
             --v0-background: #ffffff; /* White background */
             --v0-foreground: #09090b; /* Near black text */
-            --v0-muted: #f9fafb; /* Lighter gray (Tailwind gray-50) */
-            --v0-muted-foreground: #6b7280; /* Medium gray (Tailwind gray-500) */
-            --v0-border: #e5e7eb; /* Light gray border (Tailwind gray-200) */
-            --v0-input: #d1d5db; /* Input border (Tailwind gray-300) */
-            --v0-primary: #111827; /* Dark gray (Tailwind gray-900) */
+            --v0-muted: #f8fafc; /* Very light slate */
+            --v0-muted-foreground: #64748b; /* Slate-500 */
+            --v0-border: #e2e8f0; /* Slate-200 */
+            --v0-input: #cbd5e1; /* Slate-300 */
+            --v0-primary: #0f172a; /* Slate-900 */
             --v0-primary-foreground: #ffffff; /* White */
-            --v0-secondary: #f3f4f6; /* Secondary button bg (Tailwind gray-100) */
-            --v0-secondary-foreground: #1f2937; /* Text on secondary button (Tailwind gray-800) */
-            --v0-destructive: #ef4444; /* Red (Tailwind red-500) */
-            --v0-destructive-foreground: #ffffff; /* White */
-            --v0-success: #22c55e; /* Green (Tailwind green-500) */
-            --v0-success-foreground: #ffffff; /* White */
-            --v0-card: #ffffff; /* Card background */
-            --v0-card-foreground: #111827; /* Card text */
-            --v0-radius: 0.5rem; /* Default border radius */
-            --v0-radius-sm: 0.375rem; /* Smaller radius */
-            --v0-radius-lg: 0.75rem; /* Larger radius */
-            --v0-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* Subtle shadow */
+            --v0-secondary: #f1f5f9; /* Slate-100 */
+            --v0-secondary-foreground: #0f172a; /* Slate-900 */
+            --v0-destructive: #ef4444; /* Red-500 */
+            --v0-destructive-foreground: #ffffff;
+            --v0-success: #22c55e;
+            --v0-success-foreground: #ffffff;
+            --v0-card: #ffffff;
+            --v0-card-foreground: #020617; /* Slate-950 */
+            --v0-radius: 0.5rem;
+            --v0-radius-lg: 0.75rem;
+            --v0-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --v0-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --v0-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
         body { 
             background-color: var(--v0-muted); 
-            padding-top: 2rem; 
-            padding-bottom: 4rem; 
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; /* Tailwind default font stack */
+            padding-top: 3rem; 
+            padding-bottom: 5rem; 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             color: var(--v0-foreground);
+            line-height: 1.5;
         }
-        .container { max-width: 960px; }
+        .container { 
+            max-width: 1000px; /* Limit width for cleaner look */
+            margin: 0 auto;    /* Center */
+            padding: 0 1.5rem;
+        }
+        
+        /* Typography */
+        h1, h2, h3, h4, h5 { font-weight: 600; letter-spacing: -0.025em; color: var(--v0-primary); }
+        h1 { font-size: 1.875rem; line-height: 2.25rem; }
         
         /* Card Styles */
         .card { 
@@ -1132,40 +1142,43 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             color: var(--v0-card-foreground);
             border: 1px solid var(--v0-border); 
             border-radius: var(--v0-radius-lg); 
-            box-shadow: var(--v0-shadow); /* Use shadow variable */
-            margin-bottom: 1.5rem; 
+            box-shadow: var(--v0-shadow); /* Modern shadow */
+            margin-bottom: 2rem; 
+            overflow: hidden; /* Ensure rounded corners clip content */
+            transition: box-shadow 0.2s, transform 0.2s;
         }
+        .card:hover { box-shadow: var(--v0-shadow-lg); } /* Lift effect on hover */
+
         .card-header { 
-            background-color: var(--v0-card); 
+            background-color: #fff; /* Clean white header */
             border-bottom: 1px solid var(--v0-border);
-            padding: 1rem 1.5rem; 
-            font-weight: 600; 
+            padding: 1.25rem 1.5rem; 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
-            border-radius: var(--v0-radius-lg) var(--v0-radius-lg) 0 0; 
         }
         .card-body { padding: 1.5rem; }
 
         /* API Key Input in Header */
         .api-key-input { 
             font-weight: 600; 
-            border: none; 
-            border-bottom: 1px solid var(--v0-input); /* Use input border color */
+            border: 1px solid transparent; 
+            border-radius: var(--v0-radius);
             padding: 0.25rem 0.5rem; 
-            background: transparent; 
+            background: var(--v0-secondary); 
             color: var(--v0-primary); 
             margin-left: 0.5rem; 
             width: auto; 
-            max-width: 250px; 
-            border-radius: 0; 
-            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-            font-size: 1rem; /* Match header font size */
+            min-width: 150px;
+            max-width: 300px;
+            transition: all 0.2s;
+            font-size: 1rem;
         }
         .api-key-input:focus { 
             outline: none; 
-            border-bottom-color: var(--v0-primary); 
-            box-shadow: 0 1px 0 0 var(--v0-primary); /* Subtle bottom focus shadow */
+            background: #fff;
+            border-color: var(--v0-input);
+            box-shadow: 0 0 0 2px var(--v0-muted);
         }
         
         /* Form Elements */
