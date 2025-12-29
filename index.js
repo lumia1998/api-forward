@@ -2095,7 +2095,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             apiConfigsContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">正在加载配置...</span></div><p class="mt-2">正在加载配置...</p></div>'; // Changed to string concatenation
             // The line that hid the batch section initially has been removed.
             try {
-                const response = await fetch('/config');
+                const response = await fetch('/config', { credentials: 'same-origin' });
                 if (!response.ok) throw new Error(\`HTTP error! status: \${response.status}\`);
                 currentConfigData = await response.json();
                 if (!currentConfigData.apiUrls) currentConfigData.apiUrls = {};
@@ -2197,7 +2197,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
 
             try {
                 const response = await fetch('/config', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedConfig),
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedConfig), credentials: 'same-origin',
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || \`HTTP error! status: \${response.status}\`);
