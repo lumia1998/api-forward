@@ -5,7 +5,7 @@ services:
     build: .
     container_name: api-forwarder
     ports:
-      - "6668:6667"
+      - "26667:6667"
     restart: unless-stopped
     environment:
       - NODE_ENV=production
