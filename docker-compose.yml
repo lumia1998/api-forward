@@ -10,5 +10,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=6667
+      - ENABLE_FILE_OPERATIONS=true
+      - DB_PATH=/app/data/config.db
     volumes:
-      - ./logs:/app/logs
+      - ./data:/app/data  # 持久化SQLite数据库文件

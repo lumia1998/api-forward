@@ -3,37 +3,46 @@ const axios = require('axios');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const { MongoClient } = require('mongodb');
+const Database = require('better-sqlite3');
 
-// --- MongoDB Configuration ---
-// 从环境变量中读取MongoDB连接信息
-const mongoUri = process.env.MONGODB_URI;
-const dbName = process.env.MONGODB_DB_NAME || "api-forward";
-const collectionName = process.env.MONGODB_COLLECTION_NAME || "config";
+// --- SQLite Configuration ---
+// 从环境变量中读取数据库路径,默认为 ./data/config.db
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'data', 'config.db');
+const dbDir = path.dirname(dbPath);
 
-// 检查是否提供了必要的环境变量
-if (!mongoUri) {
-    console.warn("警告: 未设置MONGODB_URI环境变量。MongoDB功能将不可用，仅使用本地文件存储配置。");
+// 确保数据库目录存在
+if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+    console.log(`Created database directory: ${dbDir}`);
 }
 
-// 仅当提供了MongoDB URI时才创建客户端
-const mongoClient = mongoUri ? new MongoClient(mongoUri) : null;
+// 初始化SQLite数据库
+let db;
+try {
+    db = new Database(dbPath);
+    console.log(`SQLite database initialized at: ${dbPath}`);
 
-// 安全地记录配置信息，不显示敏感信息
-if (mongoUri) {
-    const hiddenUri = mongoUri.includes('@') 
-        ? `${mongoUri.substring(0, mongoUri.indexOf('://') + 3)}[CREDENTIALS_HIDDEN]${mongoUri.substring(mongoUri.indexOf('@'))}`
-        : "[MONGODB_URI_HIDDEN]";
-    console.log(`MongoDB配置: URI=${hiddenUri}, DB=${dbName}, Collection=${collectionName}`);
+    // 创建配置表(如果不存在)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS config (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            data TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    console.log('Database table initialized.');
+} catch (error) {
+    console.error('Failed to initialize SQLite database:', error);
+    process.exit(1);
 }
 
 // --- 环境配置 ---
-// 是否允许文件操作（默认不允许，适合Vercel等只读环境）
-// 设置 ENABLE_FILE_OPERATIONS=true 来允许文件操作
-const enableFileOperations = process.env.ENABLE_FILE_OPERATIONS === 'true';
+// 是否允许文件操作(默认允许,用于本地部署)
+// 设置 ENABLE_FILE_OPERATIONS=false 来禁用文件备份
+const enableFileOperations = process.env.ENABLE_FILE_OPERATIONS !== 'false';
 
 // --- 管理界面鉴权配置 ---
-// 从环境变量中读取管理员token，如果不存在则使用默认值“admin”
+// 从环境变量中读取管理员token,如果不存在则使用默认值"admin"
 const adminToken = process.env.ADMIN_TOKEN || 'admin';
 // 管理界面的cookie名称
 const adminCookieName = 'api_forward_admin_token';
@@ -42,82 +51,67 @@ const adminCookieName = 'api_forward_admin_token';
 const configPath = path.join(__dirname, 'config.json');
 let currentConfig = {};
 
-async function loadConfig() {
+function loadConfig() {
     let configLoaded = false;
-    
-    // 尝试从MongoDB加载配置（如果MongoDB客户端存在）
-    if (mongoClient) {
-        try {
-            await mongoClient.connect();
-            const db = mongoClient.db(dbName);
-            const collection = db.collection(collectionName);
-            const doc = await collection.findOne({});
-            
-            if (doc && doc.data) {
-                currentConfig = doc.data;
-                console.log("Configuration loaded from MongoDB.");
-                configLoaded = true;
-                
-                // 如果允许文件操作，备份到本地文件
-                if (enableFileOperations) {
-                    try {
-                        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 2), 'utf8');
-                        console.log("Configuration backed up to local file.");
-                    } catch (writeError) {
-                        console.error("Error backing up configuration to file:", writeError);
-                    }
-                }
-            } else {
-                console.log("No configuration found in MongoDB.");
-                // MongoDB中没有配置，尝试从本地文件加载并写入MongoDB
+
+    // 尝试从SQLite数据库加载配置
+    try {
+        const stmt = db.prepare('SELECT data FROM config WHERE id = 1');
+        const row = stmt.get();
+
+        if (row && row.data) {
+            currentConfig = JSON.parse(row.data);
+            console.log('Configuration loaded from SQLite database.');
+            configLoaded = true;
+
+            // 如果允许文件操作,备份到本地文件
+            if (enableFileOperations) {
                 try {
-                    if (fs.existsSync(configPath)) {
-                        const rawData = fs.readFileSync(configPath, 'utf8');
-                        currentConfig = JSON.parse(rawData);
-                        console.log("Configuration loaded from local file and will be saved to MongoDB.");
-                        
-                        // 将本地配置写入MongoDB
-                        await collection.updateOne({}, { $set: { data: currentConfig } }, { upsert: true });
-                        console.log("Local configuration saved to MongoDB.");
-                        configLoaded = true;
-                    }
-                } catch (fileError) {
-                    console.error("Error loading configuration from local file:", fileError);
+                    fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 2), 'utf8');
+                    console.log('Configuration backed up to local file.');
+                } catch (writeError) {
+                    console.error('Error backing up configuration to file:', writeError);
                 }
             }
-        } catch (mongoError) {
-            console.error("Error connecting to MongoDB:", mongoError);
-        } finally {
-            try {
-                await mongoClient.close();
-            } catch (error) {
-                console.error("Error closing MongoDB connection:", error);
-            }
-        }
-    } else {
-        console.log("MongoDB client not initialized.");
-    }
-    
-    // 如果配置还未加载且允许文件操作，尝试从本地文件加载
-    if (!configLoaded && enableFileOperations) {
-        try {
+        } else {
+            console.log('No configuration found in database.');
+            // 数据库中没有配置,尝试从本地文件加载
             if (fs.existsSync(configPath)) {
-                const rawData = fs.readFileSync(configPath, 'utf8');
-                currentConfig = JSON.parse(rawData);
-                console.log("Configuration loaded from local file.");
-                configLoaded = true;
+                try {
+                    const rawData = fs.readFileSync(configPath, 'utf8');
+                    currentConfig = JSON.parse(rawData);
+                    console.log('Configuration loaded from local file and will be saved to database.');
+
+                    // 将本地配置写入数据库
+                    const insertStmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime("now"))');
+                    insertStmt.run(JSON.stringify(currentConfig));
+                    console.log('Local configuration saved to database.');
+                    configLoaded = true;
+                } catch (fileError) {
+                    console.error('Error loading configuration from local file:', fileError);
+                }
             }
-        } catch (fileError) {
-            console.error("Error loading configuration from file:", fileError);
         }
+    } catch (dbError) {
+        console.error('Error loading configuration from database:', dbError);
     }
-    
-    // 如果配置仍然未加载，使用默认空配置
+
+    // 如果配置仍然未加载,使用默认空配置
     if (!configLoaded) {
-        console.log("No configuration found. Using default empty configuration.");
-        currentConfig = { apiUrls: {}, baseTag: "" };
+        console.log('No configuration found. Using default empty configuration.');
+        currentConfig = { apiUrls: {}, baseTag: '' };
+
+        // 将默认配置保存到数据库
+        try {
+            const insertStmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime("now"))');
+            insertStmt.run(JSON.stringify(currentConfig));
+            console.log('Default configuration saved to database.');
+        } catch (error) {
+            console.error('Error saving default configuration:', error);
+        }
     }
 }
+
 
 // --- Utility Functions ---
 function getValueByDotNotation(obj, path) {
@@ -158,7 +152,7 @@ async function handleProxyRequest(targetUrl, proxySettings = {}, res) {
                 imageUrl = null;
             }
         } else if (fieldToUse) {
-             console.log(`[Proxy] Could not find/access field '${fieldToUse}' or response is not an object.`);
+            console.log(`[Proxy] Could not find/access field '${fieldToUse}' or response is not an object.`);
         }
 
         if (imageUrl) {
@@ -176,7 +170,7 @@ async function handleProxyRequest(targetUrl, proxySettings = {}, res) {
     } catch (error) {
         console.error(`[Proxy] Request failed for ${targetUrl}:`, error.message);
         if (error.response) {
-             return res.status(error.response.status).json(error.response.data || { error: 'Proxy target returned an error' });
+            return res.status(error.response.status).json(error.response.data || { error: 'Proxy target returned an error' });
         } else if (error.request) {
             return res.status(504).json({ error: 'Proxy request timed out or failed', targetUrl: targetUrl });
         } else {
@@ -188,6 +182,7 @@ async function handleProxyRequest(targetUrl, proxySettings = {}, res) {
 // --- Express App Setup ---
 const app = express();
 const PORT = process.env.PORT || 3000;
+
 
 app.use(cors());
 app.use(express.json());
@@ -203,7 +198,7 @@ app.get('/config', checkAdminAuth, (req, res) => {
     res.json(currentConfig);
 });
 
-app.post('/config', checkAdminAuth, async (req, res) => {
+app.post('/config', checkAdminAuth, (req, res) => {
     const newConfig = req.body;
     if (!newConfig || typeof newConfig !== 'object' || !newConfig.apiUrls) {
         return res.status(400).json({ error: 'Invalid configuration format.' });
@@ -211,83 +206,55 @@ app.post('/config', checkAdminAuth, async (req, res) => {
     try {
         // 首先更新内存中的配置
         currentConfig = newConfig;
-        
-        // 尝试保存到MongoDB（如果MongoDB客户端存在）
-        let mongoSuccess = false;
-        if (mongoClient) {
+
+        // 保存到SQLite数据库
+        let dbSuccess = false;
+        try {
+            const stmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime("now"))');
+            stmt.run(JSON.stringify(currentConfig));
+            console.log('Configuration saved to SQLite database.');
+            dbSuccess = true;
+        } catch (dbError) {
+            console.error('Error saving to database:', dbError);
+        }
+
+        // 如果允许文件操作,尝试写入本地文件作为备份
+        if (enableFileOperations) {
             try {
-                await mongoClient.connect();
-                const db = mongoClient.db(dbName);
-                const collection = db.collection(collectionName);
-                await collection.updateOne({}, { $set: { data: currentConfig } }, { upsert: true });
-                console.log("Configuration saved to MongoDB.");
-                mongoSuccess = true;
-            } catch (mongoError) {
-                console.error('Error saving to MongoDB:', mongoError);
-            } finally {
-                try {
-                    await mongoClient.close();
-                } catch (error) {
-                    console.error("Error closing MongoDB connection:", error);
+                fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 2), 'utf8');
+                console.log('Configuration backed up to local file.');
+
+                if (dbSuccess) {
+                    return res.json({
+                        message: 'Configuration saved to database and backed up to file. Changes are now live.'
+                    });
+                } else {
+                    return res.json({
+                        message: 'Configuration saved to file but database update failed. Changes are now live.'
+                    });
+                }
+            } catch (fileError) {
+                console.error('Error writing config file:', fileError);
+                if (dbSuccess) {
+                    return res.json({
+                        message: 'Configuration saved to database but backup to file failed. Changes are now live.'
+                    });
+                } else {
+                    return res.status(500).json({
+                        error: 'Failed to save configuration to both database and file, but in-memory config updated.'
+                    });
                 }
             }
         } else {
-            console.log("MongoDB client not initialized. Skipping MongoDB save.");
-        }
-        
-        // 如果允许文件操作，尝试写入本地文件作为备份
-        if (enableFileOperations) {
-            fs.writeFile(configPath, JSON.stringify(currentConfig, null, 2), 'utf8', (err) => {
-                if (err) {
-                    console.error('Error writing config file:', err);
-                    if (mongoClient && !mongoSuccess) {
-                        // MongoDB可用但保存失败，且文件写入也失败
-                        return res.status(500).json({ 
-                            error: 'Failed to save configuration to both MongoDB and file, but in-memory config updated.' 
-                        });
-                    } else if (mongoClient) {
-                        // MongoDB可用且保存成功，但文件写入失败
-                        return res.json({ 
-                            message: 'Configuration saved to MongoDB but backup to file failed. Changes are now live.' 
-                        });
-                    } else {
-                        // MongoDB不可用，且文件写入失败
-                        return res.status(500).json({ 
-                            error: 'Failed to save configuration to file and MongoDB is not available. In-memory config is updated.' 
-                        });
-                    }
-                } else {
-                    console.log("Configuration saved to local file.");
-                    if (mongoClient) {
-                        return res.json({ 
-                            message: mongoSuccess 
-                                ? 'Configuration updated successfully and saved to both MongoDB and file. Changes are now live.' 
-                                : 'Configuration saved to file but MongoDB update failed. Changes are now live.'
-                        });
-                    } else {
-                        return res.json({ 
-                            message: 'Configuration saved to local file. MongoDB is not available. Changes are now live.'
-                        });
-                    }
-                }
-            });
-        } else {
-            // 不允许文件操作，只依赖MongoDB
-            console.log("File operations disabled, skipping file write operations.");
-            if (mongoClient) {
-                if (mongoSuccess) {
-                    return res.json({ 
-                        message: 'Configuration saved to MongoDB. Changes are now live.' 
-                    });
-                } else {
-                    return res.status(500).json({ 
-                        error: 'Failed to save configuration to MongoDB, but in-memory config updated.' 
-                    });
-                }
+            // 不允许文件操作,只依赖数据库
+            console.log('File operations disabled, skipping file backup.');
+            if (dbSuccess) {
+                return res.json({
+                    message: 'Configuration saved to database. Changes are now live.'
+                });
             } else {
-                // 没有MongoDB配置且不允许文件操作
-                return res.status(500).json({ 
-                    error: 'No persistent storage available. Configuration only updated in memory and will be lost on server restart.' 
+                return res.status(500).json({
+                    error: 'Failed to save configuration to database, but in-memory config updated.'
                 });
             }
         }
@@ -305,21 +272,21 @@ app.get('/:apiKey', async (req, res, next) => {
 
     // Ignore requests for static files handled by express.static
     // Check if the request looks like a file extension common for static assets
-     if (apiKey.includes('.') || apiKey === 'favicon.ico') {
-         console.log(`[Router] Ignoring likely static file request: /${apiKey}`);
-         return next(); // Pass to express.static or 404 handler
-     }
+    if (apiKey.includes('.') || apiKey === 'favicon.ico') {
+        console.log(`[Router] Ignoring likely static file request: /${apiKey}`);
+        return next(); // Pass to express.static or 404 handler
+    }
 
     // --- Handle Special System Routes ---
-     if (apiKey === 'config') { // Let the dedicated /config route handle this
-         console.log(`[Router] Passing /config request to dedicated handler.`);
-         return next();
-     }
-     if (apiKey === 'admin') { // Let the dedicated /admin route handle this
-         console.log(`[Router] Passing /admin request to dedicated handler.`);
-         return next();
-     }
-     // Add other potential static files or system routes here if needed
+    if (apiKey === 'config') { // Let the dedicated /config route handle this
+        console.log(`[Router] Passing /config request to dedicated handler.`);
+        return next();
+    }
+    if (apiKey === 'admin') { // Let the dedicated /admin route handle this
+        console.log(`[Router] Passing /admin request to dedicated handler.`);
+        return next();
+    }
+    // Add other potential static files or system routes here if needed
 
     // --- Lookup API Config ---
     const configEntry = currentConfig.apiUrls ? currentConfig.apiUrls[apiKey] : undefined;
@@ -367,7 +334,7 @@ app.get('/:apiKey', async (req, res, next) => {
         }
         const validModels = modelParamConfig?.validValues || ['flux', 'turbo'];
         if (!validModels.includes(model)) {
-             return res.status(400).json({ error: `Invalid model parameter. Valid options: ${validModels.join(', ')}` });
+            return res.status(400).json({ error: `Invalid model parameter. Valid options: ${validModels.join(', ')}` });
         }
         const redirectPath = `/${model}?tags=${encodeURIComponent(tags)}`;
         console.log(`[Handler /${apiKey}] Redirecting /draw to: ${redirectPath}`);
@@ -403,8 +370,8 @@ app.get('/:apiKey', async (req, res, next) => {
     // 2. Construct Target URL
     let targetUrl = configEntry.url; // Use potentially modified base URL
     if (!targetUrl) {
-         console.error(`[Handler /${apiKey}] Error: Configuration URL is missing.`);
-         return res.status(500).json({ error: "Internal server error: API configuration URL is missing." });
+        console.error(`[Handler /${apiKey}] Error: Configuration URL is missing.`);
+        return res.status(500).json({ error: "Internal server error: API configuration URL is missing." });
     }
     if (Object.keys(validatedParams).length > 0) {
         try {
@@ -413,11 +380,11 @@ app.get('/:apiKey', async (req, res, next) => {
                 base.searchParams.append(key, value);
             });
             targetUrl = base.toString();
-        } catch(e) {
-             // Fallback for potentially invalid base URLs in config, just append
-             console.warn(`[Handler /${apiKey}] Could not parse base URL, appending params directly. Error: ${e.message}`);
-             const urlSearchParams = new URLSearchParams(validatedParams);
-             targetUrl += (targetUrl.includes('?') ? '&' : '?') + urlSearchParams.toString();
+        } catch (e) {
+            // Fallback for potentially invalid base URLs in config, just append
+            console.warn(`[Handler /${apiKey}] Could not parse base URL, appending params directly. Error: ${e.message}`);
+            const urlSearchParams = new URLSearchParams(validatedParams);
+            targetUrl += (targetUrl.includes('?') ? '&' : '?') + urlSearchParams.toString();
         }
     }
     console.log(`[Handler /${apiKey}] Constructed target URL: ${targetUrl}`);
@@ -451,48 +418,48 @@ app.get('/', (req, res) => {
         }
         groupedApis[group].push({ key, ...entry });
     }
-    
+
     // 为 LLM 提示词准备数据
     const baseURL = `${req.protocol}://${req.get('host')}`;
     const pathFunctions = [];
-    
+
     // 按组排序的顺序
-    const groupOrder = {'AI绘图': 1, '二次元图片': 2, '三次元图片': 3, '表情包': 4, '未分组': 99};
-    
+    const groupOrder = { 'AI绘图': 1, '二次元图片': 2, '三次元图片': 3, '表情包': 4, '未分组': 99 };
+
     // 准备所有 API 配置
     const allApis = [];
     for (const key in currentConfig.apiUrls) {
         allApis.push({ key, ...currentConfig.apiUrls[key] });
     }
-    
+
     // 按组和名称排序
     allApis.sort((a, b) => {
         const orderA = groupOrder[a.group || '未分组'] || 50;
         const orderB = groupOrder[b.group || '未分组'] || 50;
         return orderA - orderB || a.key.localeCompare(b.key);
     });
-    
+
     // 生成路径功能描述
     allApis.forEach(entry => {
         const key = entry.key;
         const group = entry.group || '未分组';
         const description = entry.description || group;
-        
+
         // 格式化路径描述
         let pathDesc = '';
-        
+
         // AI绘图类型需要特殊处理tags参数
         if (group === 'AI绘图') {
             pathDesc = `${description}:/${key}?tags=<tags>`;
-        } 
+        }
         // 其他类型直接使用路径
         else {
             pathDesc = `${description}:/${key}`;
         }
-        
+
         pathFunctions.push(pathDesc);
     });
-    
+
     // 生成完整提示词，适合嵌入到 YAML 文件中，每行都有缩进
     const llmPrompt = `    picture_url: |
     {{ 
@@ -506,11 +473,11 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
     3. 所有参数必须进行URL编码
     4. 严禁生成色情内容
     示例：如果用户请求“给我一张山水画”，应返回：${baseURL}/flux?tags=mountains%2Cwater%2Clandscape%2Ctraditional%2Cchinese%2Cpainting%2Cscenery}}`;
-    
+
 
     // Sort groups
     const sortedGroups = Object.keys(groupedApis).sort((a, b) => {
-        const order = {'通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '未分组': 99};
+        const order = { '通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '未分组': 99 };
         return (order[a] || 99) - (order[b] || 99);
     });
 
@@ -537,18 +504,18 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
             const key = entry.key; // Get the key
             let paramsDesc = '';
             if (entry.queryParams && entry.queryParams.length > 0) {
-            paramsDesc = entry.queryParams.map(p => {
-                 let desc = `<code class="text-nowrap">${p.name}</code>`;
-                 if(p.required) desc += '<span class="text-danger fw-bold" title="必需参数">*</span>';
-                 if(p.defaultValue) desc += ` <small class="text-muted">(默认: ${p.defaultValue})</small>`;
-                 if(p.description) desc += `<br><small class="text-muted fst-italic">${p.description}</small>`; // Description on new line
-                 return desc;
-            }).join('<hr class="my-1">'); // Separator between params
-        } else {
-            paramsDesc = '<em class="text-muted">无</em>';
-        }
+                paramsDesc = entry.queryParams.map(p => {
+                    let desc = `<code class="text-nowrap">${p.name}</code>`;
+                    if (p.required) desc += '<span class="text-danger fw-bold" title="必需参数">*</span>';
+                    if (p.defaultValue) desc += ` <small class="text-muted">(默认: ${p.defaultValue})</small>`;
+                    if (p.description) desc += `<br><small class="text-muted fst-italic">${p.description}</small>`; // Description on new line
+                    return desc;
+                }).join('<hr class="my-1">'); // Separator between params
+            } else {
+                paramsDesc = '<em class="text-muted">无</em>';
+            }
 
-        apiTableHtml += `
+            apiTableHtml += `
                 <tr>
                     <td class="text-nowrap"><code>/${key}</code></td>
                     <td>${entry.description || '<em class="text-muted">无描述</em>'}</td>
@@ -885,17 +852,17 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
 function checkAdminAuth(req, res, next) {
     // 检查cookie中的token
     const tokenFromCookie = req.cookies?.[adminCookieName];
-    
+
     // 如果有效token，允许访问
     if (tokenFromCookie === adminToken) {
         return next();
     }
-    
+
     // 如果是API请求，返回401状态码
     if (req.path.startsWith('/config') || req.headers.accept?.includes('application/json')) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
-    
+
     // 否则重定向到登录页面
     res.redirect('/admin-login');
 }
@@ -1090,10 +1057,10 @@ app.get('/admin-login', (req, res) => {
 // 处理登录请求
 app.post('/admin-auth', express.json(), (req, res) => {
     const { token } = req.body;
-    
+
     if (token === adminToken) {
         // 设置cookie，有效期24小时
-        res.cookie(adminCookieName, token, { 
+        res.cookie(adminCookieName, token, {
             maxAge: 24 * 60 * 60 * 1000, // 24小时
             httpOnly: true,
             sameSite: 'strict'
@@ -2422,7 +2389,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         console.log('Loading configuration before starting server...');
         await loadConfig();
         console.log('Configuration loaded successfully.');
-        
+
         // 启动服务器
         app.listen(PORT, () => {
             console.log(`API Forwarder running on http://localhost:${PORT}`);
