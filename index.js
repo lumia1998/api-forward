@@ -22,7 +22,7 @@ try {
     db = new Database(dbPath);
     console.log(`SQLite database initialized at: ${dbPath}`);
 
-    // 创建配置表(如果不存在)
+    // 创建旧配置表(如果不存在) - 用于兼容和迁移
     db.exec(`
         CREATE TABLE IF NOT EXISTS config (
             id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -30,10 +30,142 @@ try {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
-    console.log('Database table initialized.');
+
+    // 创建新的规范化表结构
+    db.exec(`
+        -- 全局设置表
+        CREATE TABLE IF NOT EXISTS global_settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            base_tag TEXT DEFAULT '',
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- API 端点表
+        CREATE TABLE IF NOT EXISTS api_endpoints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            api_key TEXT NOT NULL UNIQUE,
+            group_name TEXT DEFAULT '默认分组',
+            description TEXT DEFAULT '',
+            url TEXT NOT NULL,
+            method TEXT DEFAULT 'redirect',
+            url_construction TEXT,
+            model_name TEXT,
+            proxy_image_url_field TEXT,
+            proxy_image_url_field_from_param INTEGER DEFAULT 0,
+            proxy_fallback_action TEXT DEFAULT 'returnJson',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- 查询参数表
+        CREATE TABLE IF NOT EXISTS query_params (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            endpoint_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            required INTEGER DEFAULT 0,
+            default_value TEXT,
+            valid_values TEXT,
+            sort_order INTEGER DEFAULT 0,
+            FOREIGN KEY (endpoint_id) REFERENCES api_endpoints(id) ON DELETE CASCADE
+        );
+
+        -- 创建索引
+        CREATE INDEX IF NOT EXISTS idx_endpoints_api_key ON api_endpoints(api_key);
+        CREATE INDEX IF NOT EXISTS idx_endpoints_group ON api_endpoints(group_name);
+        CREATE INDEX IF NOT EXISTS idx_params_endpoint ON query_params(endpoint_id);
+    `);
+
+    console.log('Database tables initialized.');
+
+    // 数据迁移：从旧的 JSON 格式迁移到新表
+    migrateFromJsonToTables();
+
 } catch (error) {
     console.error('Failed to initialize SQLite database:', error);
     process.exit(1);
+}
+
+// 数据迁移函数
+function migrateFromJsonToTables() {
+    try {
+        // 检查是否需要迁移：旧表有数据但新表为空
+        const oldConfigRow = db.prepare('SELECT data FROM config WHERE id = 1').get();
+        const endpointCount = db.prepare('SELECT COUNT(*) as count FROM api_endpoints').get();
+
+        if (oldConfigRow && oldConfigRow.data && endpointCount.count === 0) {
+            console.log('Starting migration from JSON to normalized tables...');
+
+            const oldConfig = JSON.parse(oldConfigRow.data);
+
+            // 使用事务确保数据一致性
+            const migrate = db.transaction(() => {
+                // 迁移全局设置
+                const insertGlobalSettings = db.prepare(`
+                    INSERT OR REPLACE INTO global_settings (id, base_tag, updated_at)
+                    VALUES (1, ?, datetime('now'))
+                `);
+                insertGlobalSettings.run(oldConfig.baseTag || '');
+
+                // 迁移 API 端点
+                const insertEndpoint = db.prepare(`
+                    INSERT INTO api_endpoints (
+                        api_key, group_name, description, url, method,
+                        url_construction, model_name,
+                        proxy_image_url_field, proxy_image_url_field_from_param, proxy_fallback_action
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `);
+
+                const insertParam = db.prepare(`
+                    INSERT INTO query_params (
+                        endpoint_id, name, description, required, default_value, valid_values, sort_order
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                `);
+
+                const apiUrls = oldConfig.apiUrls || {};
+                for (const [apiKey, config] of Object.entries(apiUrls)) {
+                    // 插入端点
+                    const result = insertEndpoint.run(
+                        apiKey,
+                        config.group || '默认分组',
+                        config.description || '',
+                        config.url || '',
+                        config.method || 'redirect',
+                        config.urlConstruction || null,
+                        config.modelName || null,
+                        config.proxySettings?.imageUrlField || null,
+                        config.proxySettings?.imageUrlFieldFromParam ? 1 : 0,
+                        config.proxySettings?.fallbackAction || 'returnJson'
+                    );
+
+                    const endpointId = result.lastInsertRowid;
+
+                    // 插入查询参数
+                    const queryParams = config.queryParams || [];
+                    queryParams.forEach((param, index) => {
+                        insertParam.run(
+                            endpointId,
+                            param.name || '',
+                            param.description || '',
+                            param.required ? 1 : 0,
+                            param.defaultValue || null,
+                            param.validValues ? JSON.stringify(param.validValues) : null,
+                            index
+                        );
+                    });
+                }
+            });
+
+            migrate();
+            console.log(`Migration completed. Migrated ${Object.keys(oldConfig.apiUrls || {}).length} endpoints.`);
+        } else if (endpointCount.count > 0) {
+            console.log('Data already exists in new tables, skipping migration.');
+        } else {
+            console.log('No data to migrate.');
+        }
+    } catch (error) {
+        console.error('Migration error:', error);
+    }
 }
 
 // --- 环境配置 ---
@@ -52,19 +184,79 @@ const configPath = path.join(__dirname, 'config.json');
 let currentConfig = {};
 
 function loadConfig() {
-    let configLoaded = false;
-
-    // 尝试从SQLite数据库加载配置
     try {
-        const stmt = db.prepare('SELECT data FROM config WHERE id = 1');
-        const row = stmt.get();
+        // 从新的规范化表加载配置
+        const endpointCount = db.prepare('SELECT COUNT(*) as count FROM api_endpoints').get();
 
-        if (row && row.data) {
-            currentConfig = JSON.parse(row.data);
-            console.log('Configuration loaded from SQLite database.');
-            configLoaded = true;
+        if (endpointCount.count > 0) {
+            // 从新表加载
+            console.log('Loading configuration from normalized tables...');
 
-            // 如果允许文件操作,备份到本地文件
+            // 加载全局设置
+            const globalSettings = db.prepare('SELECT base_tag FROM global_settings WHERE id = 1').get();
+            currentConfig.baseTag = globalSettings?.base_tag || '';
+
+            // 加载所有端点
+            const endpoints = db.prepare(`
+                SELECT id, api_key, group_name, description, url, method,
+                       url_construction, model_name,
+                       proxy_image_url_field, proxy_image_url_field_from_param, proxy_fallback_action
+                FROM api_endpoints
+            `).all();
+
+            // 加载所有查询参数
+            const allParams = db.prepare(`
+                SELECT endpoint_id, name, description, required, default_value, valid_values, sort_order
+                FROM query_params
+                ORDER BY endpoint_id, sort_order
+            `).all();
+
+            // 构建 apiUrls 对象
+            currentConfig.apiUrls = {};
+
+            for (const endpoint of endpoints) {
+                const queryParams = allParams
+                    .filter(p => p.endpoint_id === endpoint.id)
+                    .map(p => ({
+                        name: p.name,
+                        description: p.description || '',
+                        required: p.required === 1,
+                        defaultValue: p.default_value || undefined,
+                        validValues: p.valid_values ? JSON.parse(p.valid_values) : undefined
+                    }));
+
+                currentConfig.apiUrls[endpoint.api_key] = {
+                    group: endpoint.group_name || '默认分组',
+                    description: endpoint.description || '',
+                    url: endpoint.url || '',
+                    method: endpoint.method || 'redirect',
+                    queryParams: queryParams,
+                    proxySettings: {
+                        imageUrlField: endpoint.proxy_image_url_field || undefined,
+                        imageUrlFieldFromParam: endpoint.proxy_image_url_field_from_param === 1 ? true : undefined,
+                        fallbackAction: endpoint.proxy_fallback_action || 'returnJson'
+                    }
+                };
+
+                // 添加可选字段
+                if (endpoint.url_construction) {
+                    currentConfig.apiUrls[endpoint.api_key].urlConstruction = endpoint.url_construction;
+                }
+                if (endpoint.model_name) {
+                    currentConfig.apiUrls[endpoint.api_key].modelName = endpoint.model_name;
+                }
+
+                // 清理空的 proxySettings
+                const ps = currentConfig.apiUrls[endpoint.api_key].proxySettings;
+                if (!ps.imageUrlField && !ps.imageUrlFieldFromParam && ps.fallbackAction === 'returnJson') {
+                    delete currentConfig.apiUrls[endpoint.api_key].proxySettings.imageUrlField;
+                    delete currentConfig.apiUrls[endpoint.api_key].proxySettings.imageUrlFieldFromParam;
+                }
+            }
+
+            console.log(`Configuration loaded: ${endpoints.length} endpoints.`);
+
+            // 备份到本地文件
             if (enableFileOperations) {
                 try {
                     fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 2), 'utf8');
@@ -74,41 +266,27 @@ function loadConfig() {
                 }
             }
         } else {
-            console.log('No configuration found in database.');
-            // 数据库中没有配置,尝试从本地文件加载
-            if (fs.existsSync(configPath)) {
-                try {
-                    const rawData = fs.readFileSync(configPath, 'utf8');
-                    currentConfig = JSON.parse(rawData);
-                    console.log('Configuration loaded from local file and will be saved to database.');
+            // 尝试从旧的 JSON 表加载（向后兼容）
+            const stmt = db.prepare('SELECT data FROM config WHERE id = 1');
+            const row = stmt.get();
 
-                    // 将本地配置写入数据库
-                    const insertStmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))');
-                    insertStmt.run(JSON.stringify(currentConfig));
-                    console.log('Local configuration saved to database.');
-                    configLoaded = true;
-                } catch (fileError) {
-                    console.error('Error loading configuration from local file:', fileError);
-                }
+            if (row && row.data) {
+                currentConfig = JSON.parse(row.data);
+                console.log('Configuration loaded from legacy JSON table.');
+            } else if (fs.existsSync(configPath)) {
+                // 从本地文件加载
+                const rawData = fs.readFileSync(configPath, 'utf8');
+                currentConfig = JSON.parse(rawData);
+                console.log('Configuration loaded from local file.');
+            } else {
+                // 使用默认配置
+                console.log('No configuration found. Using default empty configuration.');
+                currentConfig = { apiUrls: {}, baseTag: '' };
             }
         }
-    } catch (dbError) {
-        console.error('Error loading configuration from database:', dbError);
-    }
-
-    // 如果配置仍然未加载,使用默认空配置
-    if (!configLoaded) {
-        console.log('No configuration found. Using default empty configuration.');
+    } catch (error) {
+        console.error('Error loading configuration:', error);
         currentConfig = { apiUrls: {}, baseTag: '' };
-
-        // 将默认配置保存到数据库
-        try {
-            const insertStmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))');
-            insertStmt.run(JSON.stringify(currentConfig));
-            console.log('Default configuration saved to database.');
-        } catch (error) {
-            console.error('Error saving default configuration:', error);
-        }
     }
 }
 
@@ -207,12 +385,101 @@ app.post('/config', checkAdminAuth, (req, res) => {
         // 首先更新内存中的配置
         currentConfig = newConfig;
 
-        // 保存到SQLite数据库
+        // 保存到新的规范化表
         let dbSuccess = false;
         try {
-            const stmt = db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))');
-            stmt.run(JSON.stringify(currentConfig));
-            console.log('Configuration saved to SQLite database.');
+            const saveToNormalizedTables = db.transaction(() => {
+                // 更新全局设置
+                db.prepare(`
+                    INSERT OR REPLACE INTO global_settings (id, base_tag, updated_at)
+                    VALUES (1, ?, datetime('now'))
+                `).run(newConfig.baseTag || '');
+
+                // 获取现有端点的 api_key 列表
+                const existingKeys = db.prepare('SELECT api_key FROM api_endpoints').all().map(r => r.api_key);
+                const newKeys = Object.keys(newConfig.apiUrls);
+
+                // 删除不再存在的端点
+                const keysToDelete = existingKeys.filter(k => !newKeys.includes(k));
+                if (keysToDelete.length > 0) {
+                    const deleteEndpoint = db.prepare('DELETE FROM api_endpoints WHERE api_key = ?');
+                    for (const key of keysToDelete) {
+                        deleteEndpoint.run(key);
+                    }
+                }
+
+                // 更新或插入端点
+                const upsertEndpoint = db.prepare(`
+                    INSERT INTO api_endpoints (
+                        api_key, group_name, description, url, method,
+                        url_construction, model_name,
+                        proxy_image_url_field, proxy_image_url_field_from_param, proxy_fallback_action,
+                        updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    ON CONFLICT(api_key) DO UPDATE SET
+                        group_name = excluded.group_name,
+                        description = excluded.description,
+                        url = excluded.url,
+                        method = excluded.method,
+                        url_construction = excluded.url_construction,
+                        model_name = excluded.model_name,
+                        proxy_image_url_field = excluded.proxy_image_url_field,
+                        proxy_image_url_field_from_param = excluded.proxy_image_url_field_from_param,
+                        proxy_fallback_action = excluded.proxy_fallback_action,
+                        updated_at = datetime('now')
+                `);
+
+                const deleteParams = db.prepare('DELETE FROM query_params WHERE endpoint_id = ?');
+                const insertParam = db.prepare(`
+                    INSERT INTO query_params (
+                        endpoint_id, name, description, required, default_value, valid_values, sort_order
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                `);
+                const getEndpointId = db.prepare('SELECT id FROM api_endpoints WHERE api_key = ?');
+
+                for (const [apiKey, config] of Object.entries(newConfig.apiUrls)) {
+                    // 插入/更新端点
+                    upsertEndpoint.run(
+                        apiKey,
+                        config.group || '默认分组',
+                        config.description || '',
+                        config.url || '',
+                        config.method || 'redirect',
+                        config.urlConstruction || null,
+                        config.modelName || null,
+                        config.proxySettings?.imageUrlField || null,
+                        config.proxySettings?.imageUrlFieldFromParam ? 1 : 0,
+                        config.proxySettings?.fallbackAction || 'returnJson'
+                    );
+
+                    // 获取端点 ID
+                    const endpointRow = getEndpointId.get(apiKey);
+                    if (endpointRow) {
+                        // 删除旧的查询参数
+                        deleteParams.run(endpointRow.id);
+
+                        // 插入新的查询参数
+                        const queryParams = config.queryParams || [];
+                        queryParams.forEach((param, index) => {
+                            insertParam.run(
+                                endpointRow.id,
+                                param.name || '',
+                                param.description || '',
+                                param.required ? 1 : 0,
+                                param.defaultValue || null,
+                                param.validValues ? JSON.stringify(param.validValues) : null,
+                                index
+                            );
+                        });
+                    }
+                }
+
+                // 同时更新旧的 JSON 表（向后兼容）
+                db.prepare('INSERT OR REPLACE INTO config (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))').run(JSON.stringify(currentConfig));
+            });
+
+            saveToNormalizedTables();
+            console.log('Configuration saved to normalized tables.');
             dbSuccess = true;
         } catch (dbError) {
             console.error('Error saving to database:', dbError);
@@ -412,7 +679,7 @@ app.get('/', (req, res) => {
     const groupedApis = {};
     for (const key in currentConfig.apiUrls) {
         const entry = currentConfig.apiUrls[key];
-        const group = entry.group || '未分组';
+        const group = entry.group || '默认分组';
         if (!groupedApis[group]) {
             groupedApis[group] = [];
         }
@@ -424,7 +691,7 @@ app.get('/', (req, res) => {
     const pathFunctions = [];
 
     // 按组排序的顺序
-    const groupOrder = { 'AI绘图': 1, '二次元图片': 2, '三次元图片': 3, '表情包': 4, '未分组': 99 };
+    const groupOrder = { 'AI绘图': 1, '二次元图片': 2, '三次元图片': 3, '表情包': 4, '默认分组': 99 };
 
     // 准备所有 API 配置
     const allApis = [];
@@ -434,15 +701,15 @@ app.get('/', (req, res) => {
 
     // 按组和名称排序
     allApis.sort((a, b) => {
-        const orderA = groupOrder[a.group || '未分组'] || 50;
-        const orderB = groupOrder[b.group || '未分组'] || 50;
+        const orderA = groupOrder[a.group || '默认分组'] || 50;
+        const orderB = groupOrder[b.group || '默认分组'] || 50;
         return orderA - orderB || a.key.localeCompare(b.key);
     });
 
     // 生成路径功能描述
     allApis.forEach(entry => {
         const key = entry.key;
-        const group = entry.group || '未分组';
+        const group = entry.group || '默认分组';
         const description = entry.description || group;
 
         // 格式化路径描述
@@ -477,7 +744,7 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
 
     // Sort groups
     const sortedGroups = Object.keys(groupedApis).sort((a, b) => {
-        const order = { '通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '未分组': 99 };
+        const order = { '通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '默认分组': 99 };
         return (order[a] || 99) - (order[b] || 99);
     });
 
@@ -574,7 +841,7 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
             color: var(--v0-foreground);
             font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; /* Tailwind default font stack */
         }
-        .container { max-width: 1140px; }
+        .container { max-width: 1140px; margin: 0 auto; }
         
         /* Card Styles */
         .card { 
@@ -1429,23 +1696,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
              </div>
         </div>
 
-        <!-- Global Settings Card -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h2 class="h5 mb-0">AI绘图 基础tag</h2>
-            </div>
-            <div class="card-body">
-                 <div class="row mb-3 align-items-center global-setting-item">
-                     <label for="baseTag" class="col-sm-3 col-form-label text-sm-end" title="用于 AI 绘图 API 的通用附加标签">AI基础 Tag:</label>
-                     <div class="col-sm-8">
-                         <input type="text" class="form-control" id="baseTag" name="baseTag" placeholder="例如: masterpiece%20best%20quality">
-                     </div>
-                     <div class="col-sm-1">
-                          <i class="bi bi-info-circle tooltip-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="这个 Tag 会自动附加到 AI 绘图请求的末尾，以提升图像质量。请使用 URL 编码格式。"></i>
-                     </div>
-                 </div>
-            </div>
-        </div>
+        <!-- Global Settings Card Removed -->
 
         <form id="config-form">
             <div id="api-configs-container">
@@ -1474,21 +1725,23 @@ app.get('/admin', checkAdminAuth, (req, res) => {
     <script>
         const form = document.getElementById('config-form');
         const apiConfigsContainer = document.getElementById('api-configs-container');
-        // Get baseTag input from its new location
-        const baseTagInput = document.getElementById('baseTag'); // Directly get the input now
+        // baseTag input removed
         const messageDiv = document.getElementById('message');
-        let currentConfigData = { apiUrls: {}, baseTag: "" };
+        let currentConfigData = { apiUrls: {} };
         let bootstrapTooltipList = [];
 
         function showMessage(text, type = 'success') {
-            messageDiv.textContent = text;
-            messageDiv.className = \`alert alert-\${type === 'success' ? 'success' : 'danger'} mt-4\`;
-            messageDiv.style.display = 'block';
-            messageDiv.setAttribute('role', 'alert');
-            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            setTimeout(() => {
-                 messageDiv.style.display = 'none';
-            }, 7000);
+            const msgDiv = document.getElementById('message');
+            if (msgDiv) {
+                msgDiv.textContent = text;
+                msgDiv.className = \`alert alert-\${type === 'success' ? 'success' : 'danger'} mt-4\`;
+                msgDiv.style.display = 'block';
+                msgDiv.setAttribute('role', 'alert');
+                // msgDiv.scrollIntoView({ behavior: 'smooth', block: 'end' }); // Disable auto-scroll
+                setTimeout(() => {
+                     msgDiv.style.display = 'none';
+                }, 7000);
+            }
         }
 
         function sanitizeApiKey(key) {
@@ -1673,16 +1926,16 @@ app.get('/admin', checkAdminAuth, (req, res) => {
 
             // Clear previous group options in batch move dropdown
             batchMoveGroupSelect.innerHTML = '<option value="" selected disabled>选择目标分组...</option>';
-            // Add "未分组" option explicitly
-            batchMoveGroupSelect.add(new Option('未分组', '未分组'));
+            // Add "默认分组" option explicitly
+            batchMoveGroupSelect.add(new Option('默认分组', '默认分组'));
 
             const apiUrls = currentConfigData.apiUrls || {};
             const groupedEndpoints = {};
-            const allGroupNames = new Set(['未分组']); // Start with '未分组'
+            const allGroupNames = new Set(['默认分组']); // Start with '默认分组'
 
             for (const apiKey in apiUrls) {
                 const entry = apiUrls[apiKey];
-                const group = entry.group || '未分组';
+                const group = entry.group || '默认分组';
                 allGroupNames.add(group); // Collect all unique group names
                 if (!groupedEndpoints[group]) { groupedEndpoints[group] = []; }
                 groupedEndpoints[group].push({ key: apiKey, config: entry });
@@ -1690,18 +1943,18 @@ app.get('/admin', checkAdminAuth, (req, res) => {
 
             // Populate batch move dropdown with sorted unique group names
             const sortedAllGroupNames = Array.from(allGroupNames).sort((a, b) => {
-                 const order = {'通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '696898': 6, '未分组': 99}; // Added 696898
+                 const order = {'通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '696898': 6, '默认分组': 99}; // Added 696898
                  return (order[a] || 99) - (order[b] || 99);
             });
             sortedAllGroupNames.forEach(groupName => {
-                 if (groupName !== '未分组') { // Avoid adding '未分组' twice
+                 if (groupName !== '默认分组') { // Avoid adding '默认分组' twice
                      batchMoveGroupSelect.add(new Option(groupName, groupName));
                  }
             });
 
 
             const sortedGroups = Object.keys(groupedEndpoints).sort((a, b) => {
-                 const order = {'通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '696898': 6, '未分组': 99}; // Added 696898
+                 const order = {'通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '696898': 6, '默认分组': 99}; // Added 696898
                  return (order[a] || 99) - (order[b] || 99);
             });
             
@@ -1744,12 +1997,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
                 });
             }
 
-            // Set the value for the globally placed baseTag input
-            if (baseTagInput) {
-                 baseTagInput.value = currentConfigData.baseTag || '';
-            } else {
-                 console.error("BaseTag input element not found in its new location!");
-            }
+            // baseTag input removed - no longer needed
 
 
             setTimeout(() => initializeTooltips(document.body), 100);
@@ -1816,46 +2064,60 @@ app.get('/admin', checkAdminAuth, (req, res) => {
 
         function addApiEndpoint() {
              const newApiKey = \`new_endpoint_\${Date.now()}\`;
-             const newConfigEntry = { group: "未分组", description: "", url: "", method: "redirect", queryParams: [], proxySettings: {} };
+             const newConfigEntry = { group: "默认分组", description: "", url: "", method: "redirect", queryParams: [], proxySettings: {} };
              if (!apiConfigsContainer.querySelector('.card')) {
                  apiConfigsContainer.innerHTML = '';
              }
-             // Find or create the '未分组' section
-             let ungroupedContainer = apiConfigsContainer.querySelector('#group-未分组');
+             // Find or create the '默认分组' section
+             let ungroupedContainer = apiConfigsContainer.querySelector('#group-默认分组');
              if (!ungroupedContainer) {
                  const groupTitle = document.createElement('h2');
                  groupTitle.className = 'group-title';
-                 groupTitle.textContent = '未分组';
+                 groupTitle.textContent = '默认分组';
                  apiConfigsContainer.appendChild(groupTitle);
                  ungroupedContainer = document.createElement('div');
-                 ungroupedContainer.id = 'group-未分组'; // Assign ID to the container
+                 ungroupedContainer.id = 'group-默认分组'; // Assign ID to the container
                  apiConfigsContainer.appendChild(ungroupedContainer);
              }
              const cardElement = renderApiEndpoint(newApiKey, newConfigEntry);
              ungroupedContainer.appendChild(cardElement);
 
-             cardElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-             cardElement.querySelector('.api-key-input').focus();
+             // 不再自动滚动到新卡片，方便批量添加
+             // 只聚焦输入框，用户可以手动滚动查看
+             cardElement.querySelector('.api-key-input').focus({ preventScroll: true });
         }
 
         function removeApiEndpoint(card) {
-            const apiKeyInput = card.querySelector('.api-key-input');
-            const keyToRemove = apiKeyInput ? apiKeyInput.value : '(未知)';
-            if (confirm(\`确定要删除端点 "\${keyToRemove}" 吗？此操作将在保存后生效且无法撤销。\`)) {
-                const parentGroupContainer = card.parentElement;
-                card.remove();
-                handleCheckboxChange(); // Update batch counts after removing
-                 if (!apiConfigsContainer.querySelector('.card')) {
-                     apiConfigsContainer.innerHTML = '<div class="alert alert-info">当前没有配置任何 API 端点。点击“添加新 API 端点”开始。</div>';
-                     document.getElementById('batch-actions-section').style.display = 'none'; // Hide batch actions
-                 } else if (parentGroupContainer && !parentGroupContainer.querySelector('.card')) {
-                      const groupTitle = parentGroupContainer.previousElementSibling;
-                      if (groupTitle && groupTitle.classList.contains('group-title')) {
-                          groupTitle.remove();
-                      }
-                      parentGroupContainer.remove();
-                 }
-                showMessage(\`端点 \${keyToRemove} 已标记为删除。点击“保存所有配置”以确认。\`, 'success');
+            try {
+                if (!card) { console.error("removeApiEndpoint called with null card"); return; }
+                const apiKeyInput = card.querySelector('.api-key-input');
+                const keyToRemove = apiKeyInput ? apiKeyInput.value : '(未知)';
+                
+                if (confirm(\`确定要删除端点 "\${keyToRemove}" 吗？此操作将在保存后生效且无法撤销。\`)) {
+                    const parentGroupContainer = card.parentElement;
+                    card.remove();
+                    
+                    try {
+                        handleCheckboxChange(); // Update batch counts after removing
+                    } catch (e) { console.warn("Error updating batch buttons:", e); }
+
+                    const container = document.getElementById('api-configs-container');
+                    if (container && !container.querySelector('.card')) {
+                         container.innerHTML = '<div class="alert alert-info">当前没有配置任何 API 端点。点击“添加新 API 端点”开始。</div>';
+                         const batchSection = document.getElementById('batch-actions-section');
+                         if (batchSection) batchSection.style.display = 'none';
+                    } else if (parentGroupContainer && !parentGroupContainer.querySelector('.card')) {
+                         const groupTitle = parentGroupContainer.previousElementSibling;
+                         if (groupTitle && groupTitle.classList.contains('group-title')) {
+                             groupTitle.remove();
+                         }
+                         parentGroupContainer.remove();
+                    }
+                    showMessage(\`端点 \${keyToRemove} 已标记为删除。点击“保存所有配置”以确认。\`, 'success');
+                }
+            } catch (error) {
+                console.error("Error in removeApiEndpoint:", error);
+                showMessage("删除操作出错: " + error.message, "error");
             }
         }
 
@@ -1934,35 +2196,48 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         }
 
         function batchDeleteEndpoints() {
-            const selectedKeys = getSelectedApiKeys();
-            if (selectedKeys.length === 0) {
-                showMessage('请先选择要删除的端点。', 'error');
-                return;
-            }
-            if (confirm(\`确定要删除选中的 \${selectedKeys.length} 个端点吗？此操作将在保存后生效且无法撤销。\`)) {
-                let deletedCount = 0;
-                selectedKeys.forEach(apiKey => {
-                    const card = apiConfigsContainer.querySelector(\`.card[data-api-key="\${apiKey}"]\`);
-                    if (card) {
-                        const parentGroupContainer = card.parentElement;
-                        card.remove();
-                        deletedCount++;
-                         // Check if group is now empty
-                         if (parentGroupContainer && !parentGroupContainer.querySelector('.card')) {
-                             const groupTitle = parentGroupContainer.previousElementSibling;
-                             if (groupTitle && groupTitle.classList.contains('group-title')) {
-                                 groupTitle.remove();
+            try {
+                const selectedKeys = getSelectedApiKeys();
+                if (selectedKeys.length === 0) {
+                    showMessage('请先选择要删除的端点。', 'error');
+                    return;
+                }
+                if (confirm(\`确定要删除选中的 \${selectedKeys.length} 个端点吗？此操作将在保存后生效且无法撤销。\`)) {
+                    let deletedCount = 0;
+                    const container = document.getElementById('api-configs-container');
+                    
+                    selectedKeys.forEach(apiKey => {
+                        const card = container ? container.querySelector(\`.card[data-api-key="\${apiKey}"]\`) : null;
+                        if (card) {
+                            const parentGroupContainer = card.parentElement;
+                            card.remove();
+                            deletedCount++;
+                             // Check if group is now empty
+                             if (parentGroupContainer && !parentGroupContainer.querySelector('.card')) {
+                                 const groupTitle = parentGroupContainer.previousElementSibling;
+                                 if (groupTitle && groupTitle.classList.contains('group-title')) {
+                                     groupTitle.remove();
+                                 }
+                                 parentGroupContainer.remove();
                              }
-                             parentGroupContainer.remove();
-                         }
-                    }
-                });
-                handleCheckboxChange(); // Update counts and button states
-                showMessage(\`已标记删除 \${deletedCount} 个端点。点击“保存所有配置”以确认。\`, 'success');
-                 if (!apiConfigsContainer.querySelector('.card')) {
-                     apiConfigsContainer.innerHTML = '<div class="alert alert-info">当前没有配置任何 API 端点。点击“添加新 API 端点”开始。</div>';
-                     document.getElementById('batch-actions-section').style.display = 'none'; // Hide batch actions
-                 }
+                        }
+                    });
+                    
+                    try {
+                        handleCheckboxChange(); // Update counts and button states
+                    } catch (e) { console.warn("Error updating batch buttons:", e); }
+
+                    showMessage(\`已标记删除 \${deletedCount} 个端点。点击“保存所有配置”以确认。\`, 'success');
+                    
+                     if (container && !container.querySelector('.card')) {
+                         container.innerHTML = '<div class="alert alert-info">当前没有配置任何 API 端点。点击“添加新 API 端点”开始。</div>';
+                         const batchSection = document.getElementById('batch-actions-section');
+                         if (batchSection) batchSection.style.display = 'none';
+                     }
+                }
+            } catch (error) {
+                console.error("Error in batchDeleteEndpoints:", error);
+                showMessage("批量删除操作出错: " + error.message, "error");
             }
         }
 
@@ -1997,7 +2272,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             // Temporarily store current form data before re-rendering
             const currentFormData = collectFormData();
             currentConfigData.apiUrls = currentFormData.apiUrls; // Update in-memory data
-            currentConfigData.baseTag = currentFormData.baseTag;
+            // baseTag removed
             renderConfig(); // Re-render based on updated in-memory data
             // Restore checkbox states after re-render (optional, but good UX)
             selectedKeys.forEach(apiKey => {
@@ -2063,7 +2338,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             const options = Array.from(selectElement.options);
             // 保留第一个 "选择目标分组..." 选项
             const firstOption = options.shift();
-            const order = {'通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '696898': 6, '未分组': 99};
+            const order = {'通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '696898': 6, '默认分组': 99};
             options.sort((a, b) => {
                  const orderA = order[a.value] || 99;
                  const orderB = order[b.value] || 99;
@@ -2086,20 +2361,19 @@ app.get('/admin', checkAdminAuth, (req, res) => {
                  if (!apiKey) return; // Skip invalid ones for this temporary collection
 
                  const configEntry = {
-                     group: card.querySelector(\`#\${originalApiKey}-group\`).value.trim() || '未分组',
-                     description: card.querySelector(\`#\${originalApiKey}-description\`).value.trim(),
-                     url: card.querySelector(\`#\${originalApiKey}-url\`).value.trim(),
-                     method: card.querySelector(\`#\${originalApiKey}-method\`).value,
+                     group: card.querySelector(\`[id="\${originalApiKey}-group"]\`).value.trim() || '默认分组',
+                     description: card.querySelector(\`[id="\${originalApiKey}-description"]\`).value.trim(),
+                     url: card.querySelector(\`[id="\${originalApiKey}-url"]\`).value.trim(),
+                     method: card.querySelector(\`[id="\${originalApiKey}-method"]\`).value,
                      queryParams: [],
                      proxySettings: {}
                  };
                  // Simplified collection - just get the basics needed for re-render
                  updatedApiUrls[apiKey] = configEntry;
              });
-             // Get baseTag value from its global location
+             // Get baseTag value removed
              return {
-                 apiUrls: updatedApiUrls,
-                 baseTag: baseTagInput ? baseTagInput.value.trim() : ''
+                 apiUrls: updatedApiUrls
              };
         }
 
@@ -2139,12 +2413,12 @@ app.get('/admin', checkAdminAuth, (req, res) => {
                  if (usedApiKeys.has(apiKey)) { showMessage(\`错误：API 端点路径 "/\${apiKey}" 重复！请确保每个端点路径唯一。\`, 'error'); apiKeyInput.focus(); hasError = true; return; }
                  usedApiKeys.add(apiKey);
 
-                const urlInput = card.querySelector(\`#\${originalApiKey}-url\`);
+                const urlInput = card.querySelector(\`[id="\${originalApiKey}-url"]\`);
                 const configEntry = {
-                    group: card.querySelector(\`#\${originalApiKey}-group\`).value.trim() || '未分组',
-                    description: card.querySelector(\`#\${originalApiKey}-description\`).value.trim(),
+                    group: card.querySelector(\`[id="\${originalApiKey}-group"]\`).value.trim() || '默认分组',
+                    description: card.querySelector(\`[id="\${originalApiKey}-description"]\`).value.trim(),
                     url: urlInput.value.trim(),
-                    method: card.querySelector(\`#\${originalApiKey}-method\`).value,
+                    method: card.querySelector(\`[id="\${originalApiKey}-method"]\`).value,
                     queryParams: [],
                     proxySettings: {}
                 };
@@ -2152,7 +2426,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
                 if (!configEntry.url) { showMessage(\`错误：端点 /\${apiKey} 的目标 URL 不能为空！\`, 'error'); urlInput.focus(); hasError = true; return; }
 
                 // Collect Query Params... (same as before)
-                const paramItems = card.querySelectorAll(\`#\${originalApiKey}-params-list .param-item\`);
+                const paramItems = card.querySelectorAll(\`[id="\${originalApiKey}-params-list"] .param-item\`);
                 const paramNames = new Set();
                 paramItems.forEach((paramItem) => {
                      if (hasError) return;
@@ -2200,7 +2474,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             // Get baseTag value from its global location
             const updatedConfig = {
                 apiUrls: updatedApiUrls,
-                baseTag: baseTagInput ? baseTagInput.value.trim() : ''
+                baseTag: ''
             };
             console.log("Saving config:", JSON.stringify(updatedConfig, null, 2));
 
@@ -2272,8 +2546,8 @@ app.get('/admin', checkAdminAuth, (req, res) => {
                     const groupTitle = document.createElement('h2');
                     groupTitle.className = 'group-title';
                     groupTitle.textContent = targetGroupName;
-                    // Find the correct place to insert (e.g., before '未分组' or at the end)
-                    const ungroupedContainer = apiConfigsContainer.querySelector('#group-未分组');
+                    // Find the correct place to insert (e.g., before '默认分组' or at the end)
+                    const ungroupedContainer = apiConfigsContainer.querySelector('#group-默认分组');
                     if (ungroupedContainer) {
                         apiConfigsContainer.insertBefore(groupTitle, ungroupedContainer);
                         emoticonGroupContainer = document.createElement('div');
@@ -2363,6 +2637,24 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             }
         }
         
+        async function loadConfig() {
+            try {
+                const response = await fetch('/config', {
+                    credentials: 'same-origin' // Ensure cookies are sent
+                });
+                if (response.status === 401 || response.status === 403) {
+                    window.location.href = '/admin-login';
+                    return;
+                }
+                const config = await response.json();
+                currentConfigData = config; // Update global config data
+                renderConfig();
+            } catch (error) {
+                console.error('Error loading config:', error);
+                showMessage('加载配置失败: ' + error.message + ' (请尝试重新登录)', 'error');
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             loadConfig(); // Load existing config first
 
@@ -2405,8 +2697,8 @@ app.get('/admin', checkAdminAuth, (req, res) => {
 
         // 启动服务器
         app.listen(PORT, '0.0.0.0', () => {
-            console.log(`API Forwarder running on http://0.0.0.0:${PORT}`);
-            console.log(`Admin interface available at http://0.0.0.0:${PORT}/admin`);
+            console.log(`API Forwarder running on http://localhost:${PORT}`);
+            console.log(`Admin interface available at http://localhost:${PORT}/admin`);
         });
     } catch (error) {
         console.error('Failed to start server:', error);
