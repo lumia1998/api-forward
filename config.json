@@ -1,4 +1,5 @@
 {
+  "baseTag": "",
   "apiUrls": {
     "mp": {
       "group": "未分组",
@@ -6,8 +7,9 @@
       "url": "https://t.alcy.cc/mp",
       "method": "redirect",
       "queryParams": [],
-      "proxySettings": {}
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
     }
-  },
-  "baseTag": ""
+  }
 }

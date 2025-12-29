@@ -1,4 +1,36 @@
-以下是可用的API端点，你可以直接在我们的演示站点上测试：[https://api-foward.vercel.app](https://api-foward.vercel.app)
+# API Forwarder
+
+一个通用的 API 转发服务，支持将请求代理或重定向到目标 API，并可从 JSON 响应中提取图片链接。
+
+## 功能特性
+
+- 🔄 **通用转发** - 将请求转发到任意 API 端点
+- 🖼️ **图片提取** - 自动从 JSON 响应中提取图片 URL
+- 📁 **分组管理** - 支持将端点按分组归类（默认分组）
+- 🎛️ **管理界面** - 可视化配置和管理 API 端点
+- 🐳 **Docker 支持** - 支持 Docker 容器化部署
+- 💾 **SQLite 存储** - 使用 SQLite 数据库持久化配置
+
+## 快速开始
+
+### 本地运行
+
+```bash
+npm install
+npm start
+```
+
+服务将在 http://localhost:3000 启动，管理界面位于 http://localhost:3000/admin
+
+### Docker 部署
+
+```bash
+docker-compose up -d --build
+```
+
+服务将在端口 26667 上运行。
+
+## API 端点示例
 
 ### 通用转发
 
@@ -6,150 +38,56 @@
 GET /forward?url=https://api-endpoint.com
 ```
 
-这个端点会将请求转发到指定的URL，并尝试从响应中提取图片URL，然后通过重定向方式返回。
+转发请求到指定 URL，尝试从响应中提取图片 URL 并重定向。
 
 ```http
 GET /forward?url=https://api-endpoint.com&field=image
 ```
 
-如果API返回的JSON中图片URL不是存储在`url`字段中，而是其他字段（如`image`、`img`、`src`等），可以通过`field`参数指定。
-
-### AI绘图
-
-```http
-GET /flux?tags=beautiful,landscape
-```
-
-使用Flux模型生成图片（2D风格），标签用逗号分隔。
-
-![Flux模型示例](https://api-foward.vercel.app/flux?tags=beautiful,landscape)
-
-
-```http
-GET /turbo?tags=beautiful,landscape
-```
-
-
-使用Turbo模型生成图片（3D风格），标签用逗号分隔。
+通过 `field` 参数指定 JSON 中的图片字段名。
 
 ### 二次元图片
 
 ```http
 GET /anime1
-```
-
-![随机二次元图片1](https://api-foward.vercel.app/anime1)
-
-随机二次元图片1。
-
-```http
 GET /anime2
-```
-
-![随机二次元图片2](https://api-foward.vercel.app/anime2)
-
-随机二次元图片2。
-
-```http
 GET /ba
 ```
-
-![蓝档案图片](https://api-foward.vercel.app/ba)
-
-蓝档案图片。
-
-```http
-GET /anime-tag?keyword=genshinimpact
-```
-
-![原神图片](https://api-foward.vercel.app/anime-tag?keyword=genshinimpact)
-
-指定关键词的二次元图片。支持的关键词有：`azurlane`，`genshinimpact`，`arknights`，`honkai`，`fate`，`frontline`，`princess`，`idolmaster`，`hololive`，`touhou`。
-
-```http
-GET /anime-tag?keyword=azurlane&size=original&r18=0
-```
-
-可选参数：`size`（original/regular/small），`r18`（0/1）。
 
 ### 三次元图片
 
 ```http
 GET /baisi
-```
-
-![白丝图片](https://api-foward.vercel.app/baisi)
-
-白丝图片。
-
-```http
 GET /heisi
 ```
-
-![黑丝图片](https://api-foward.vercel.app/heisi)
-
-黑丝图片。
 
 ### 表情包
 
 ```http
 GET /doro
-```
-
-![doro.asia随机贴纸](https://api-foward.vercel.app/doro)
-
-doro.asia的随机贴纸。
-
-```http
 GET /maomao
-```
-
-![柴郡表情包](https://api-foward.vercel.app/maomao)
-
-柴郡表情包。
-
-```http
 GET /nailong
 ```
 
-![奶龙表情包](https://api-foward.vercel.app/nailong)
+## 管理界面
 
-奶龙表情包。
+访问 `/admin` 可进入管理界面，支持：
 
-## 使用示例
+- 添加/删除/编辑 API 端点
+- 批量操作（删除、移动分组）
+- 配置查询参数
+- 设置代理/重定向模式
 
-获取随机贴纸：
+## 环境变量
 
-```http
-https://api-foward.vercel.app/doro
-```
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| PORT | 3000 | 服务端口 |
+| DB_PATH | ./data/config.db | 数据库路径 |
+| ENABLE_FILE_OPERATIONS | true | 启用文件操作 |
 
-转发请求到其他API：
-
-```http
-https://api-foward.vercel.app/forward?url=https://www.doro.asia/api/random-sticker
-```
-
-指定自定义字段名：
-
-```http
-https://api-foward.vercel.app/forward?url=https://some-api.com/image-api&field=imageUrl
-```
-
-## 在HTML中使用
-
-```html
-<!-- 使用在线版本 -->
-<img src="https://api-foward.vercel.app/doro" alt="随机贴纸">
-
-<!-- 或者使用本地版本 -->
-<img src="http://localhost:3000/doro" alt="随机贴纸">
-```
-
-
-## GitHub仓库
+## GitHub 仓库
 
 ```text
-https://github.com/ziyi233/api-foward.git
+https://github.com/lumia1998/api
 ```
-
