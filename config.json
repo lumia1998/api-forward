@@ -1,15 +1,148 @@
 {
-  "baseTag": "",
   "apiUrls": {
+    "ycy": {
+      "group": "默认分组",
+      "description": "二次元自适应",
+      "url": "https://t.alcy.cc/ycy",
+      "method": "redirect",
+      "type": "image",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "moez": {
+      "group": "默认分组",
+      "description": "萌版自适应",
+      "url": "https://t.alcy.cc/moez",
+      "method": "redirect",
+      "type": "image",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "pc": {
+      "group": "默认分组",
+      "description": "pc横图",
+      "url": "https://t.alcy.cc/pc",
+      "method": "redirect",
+      "type": "image",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "moe": {
+      "group": "默认分组",
+      "description": "萌版横图",
+      "url": "https://t.alcy.cc/moe",
+      "method": "redirect",
+      "type": "image",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "fj": {
+      "group": "默认分组",
+      "description": "风景横图",
+      "url": "https://t.alcy.cc/fj",
+      "method": "redirect",
+      "type": "image",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "acg": {
+      "group": "默认分组",
+      "description": "acg动图",
+      "url": "https://t.alcy.cc/acg",
+      "method": "redirect",
+      "type": "video",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
     "mp": {
-      "group": "未分组",
-      "description": "竖图",
+      "group": "默认分组",
+      "description": "移动竖图",
       "url": "https://t.alcy.cc/mp",
       "method": "redirect",
+      "type": "image",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "moemp": {
+      "group": "默认分组",
+      "description": "萌版竖图",
+      "url": "https://t.alcy.cc/moemp",
+      "method": "redirect",
+      "type": "image",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "lai": {
+      "group": "默认分组",
+      "description": "随机风景",
+      "url": "https://t.alcy.cc/lai",
+      "method": "redirect",
+      "type": "image",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "tianmei": {
+      "group": "默认分组",
+      "description": "甜妹视频",
+      "url": "https://v2.api-m.com/api/meinv?return=302",
+      "method": "redirect",
+      "type": "video",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "heisivideo": {
+      "group": "默认分组",
+      "description": "白丝视频",
+      "url": "http://api.yujn.cn/api/baisis.php",
+      "method": "redirect",
+      "type": "video",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "baisivideo": {
+      "group": "默认分组",
+      "description": "黑丝视频",
+      "url": "http://api.yujn.cn/api/heisis.php",
+      "method": "redirect",
+      "type": "video",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
+    },
+    "cos": {
+      "group": "默认分组",
+      "description": "cos视频",
+      "url": "https://api.yujn.cn/api/manzhan.php",
+      "method": "redirect",
+      "type": "image",
       "queryParams": [],
       "proxySettings": {
         "fallbackAction": "returnJson"
       }
     }
-  }
+  },
+  "baseTag": ""
 }

@@ -53,6 +53,7 @@ try {
             proxy_image_url_field TEXT,
             proxy_image_url_field_from_param INTEGER DEFAULT 0,
             proxy_fallback_action TEXT DEFAULT 'returnJson',
+            type TEXT DEFAULT 'image',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -112,8 +113,9 @@ function migrateFromJsonToTables() {
                     INSERT INTO api_endpoints (
                         api_key, group_name, description, url, method,
                         url_construction, model_name,
-                        proxy_image_url_field, proxy_image_url_field_from_param, proxy_fallback_action
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        proxy_image_url_field, proxy_image_url_field_from_param, proxy_fallback_action,
+                        type
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `);
 
                 const insertParam = db.prepare(`
@@ -135,7 +137,8 @@ function migrateFromJsonToTables() {
                         config.modelName || null,
                         config.proxySettings?.imageUrlField || null,
                         config.proxySettings?.imageUrlFieldFromParam ? 1 : 0,
-                        config.proxySettings?.fallbackAction || 'returnJson'
+                        config.proxySettings?.fallbackAction || 'returnJson',
+                        config.type || 'image'
                     );
 
                     const endpointId = result.lastInsertRowid;
@@ -200,7 +203,8 @@ function loadConfig() {
             const endpoints = db.prepare(`
                 SELECT id, api_key, group_name, description, url, method,
                        url_construction, model_name,
-                       proxy_image_url_field, proxy_image_url_field_from_param, proxy_fallback_action
+                       proxy_image_url_field, proxy_image_url_field_from_param, proxy_fallback_action,
+                       type
                 FROM api_endpoints
             `).all();
 
@@ -230,6 +234,7 @@ function loadConfig() {
                     description: endpoint.description || '',
                     url: endpoint.url || '',
                     method: endpoint.method || 'redirect',
+                    type: endpoint.type || 'image',
                     queryParams: queryParams,
                     proxySettings: {
                         imageUrlField: endpoint.proxy_image_url_field || undefined,
@@ -414,8 +419,9 @@ app.post('/config', checkAdminAuth, (req, res) => {
                         api_key, group_name, description, url, method,
                         url_construction, model_name,
                         proxy_image_url_field, proxy_image_url_field_from_param, proxy_fallback_action,
+                        type,
                         updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                     ON CONFLICT(api_key) DO UPDATE SET
                         group_name = excluded.group_name,
                         description = excluded.description,
@@ -426,6 +432,7 @@ app.post('/config', checkAdminAuth, (req, res) => {
                         proxy_image_url_field = excluded.proxy_image_url_field,
                         proxy_image_url_field_from_param = excluded.proxy_image_url_field_from_param,
                         proxy_fallback_action = excluded.proxy_fallback_action,
+                        type = excluded.type,
                         updated_at = datetime('now')
                 `);
 
@@ -449,7 +456,8 @@ app.post('/config', checkAdminAuth, (req, res) => {
                         config.modelName || null,
                         config.proxySettings?.imageUrlField || null,
                         config.proxySettings?.imageUrlFieldFromParam ? 1 : 0,
-                        config.proxySettings?.fallbackAction || 'returnJson'
+                        config.proxySettings?.fallbackAction || 'returnJson',
+                        config.type || 'image'
                     );
 
                     // 获取端点 ID
@@ -743,57 +751,59 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
         return (order[a] || 99) - (order[b] || 99);
     });
 
-    let groupedApiHtml = '';
+    // 生成图片卡片HTML
+    let apiCardsHtml = '<div class="api-cards-grid">';
     sortedGroups.forEach(groupName => {
-        groupedApiHtml += `<h3 class="mt-4">${groupName}</h3>`;
-        let apiTableHtml = `
-        <div class="table-responsive">
-        <table class="table table-striped table-hover table-bordered table-sm">
-            <thead>
-                <tr>
-                    <th scope="col" class="text-nowrap">端点路径</th>
-                    <th scope="col">描述</th>
-                    <th scope="col" class="text-nowrap">处理方式</th>
-                    <th scope="col">参数</th>
-                </tr>
-            </thead>
-            <tbody>`;
+        // 添加分组标题
+        apiCardsHtml += `<div class="group-section">`;
+        apiCardsHtml += `<h3 class="group-title-home">${groupName}</h3>`;
+        apiCardsHtml += `<div class="cards-row">`;
 
         // Sort endpoints within the group
         groupedApis[groupName].sort((a, b) => a.key.localeCompare(b.key));
 
         groupedApis[groupName].forEach(entry => {
-            const key = entry.key; // Get the key
-            let paramsDesc = '';
-            if (entry.queryParams && entry.queryParams.length > 0) {
-                paramsDesc = entry.queryParams.map(p => {
-                    let desc = `<code class="text-nowrap">${p.name}</code>`;
-                    if (p.required) desc += '<span class="text-danger fw-bold" title="必需参数">*</span>';
-                    if (p.defaultValue) desc += ` <small class="text-muted">(默认: ${p.defaultValue})</small>`;
-                    if (p.description) desc += `<br><small class="text-muted fst-italic">${p.description}</small>`; // Description on new line
-                    return desc;
-                }).join('<hr class="my-1">'); // Separator between params
+            const key = entry.key;
+            const description = entry.description || key;
+            const apiUrl = `${baseURL}/${key}`;
+            const type = entry.type || 'image';
+
+            if (type === 'video') {
+                apiCardsHtml += `
+                <div class="api-card">
+                    <div class="api-card-image" onclick="window.open('${apiUrl}', '_blank')" style="background: #000; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-play-circle-fill" style="font-size: 64px; color: rgba(255,255,255,0.8);"></i>
+                        <span class="api-badge" style="background: rgba(0,0,0,0.6); color: #fff; top: 0.75rem; right: 0.75rem; bottom: auto;">VIDEO</span>
+                    </div>
+                    <div class="api-card-info">
+                        <p class="api-hint"><i class="bi bi-box-arrow-up-right"></i> 点击在新标签页播放</p>
+                        <p class="api-url">${apiUrl}</p>
+                    </div>
+                </div>
+                `;
             } else {
-                paramsDesc = '<em class="text-muted">无</em>';
+                // Image Type (Default)
+                apiCardsHtml += `
+                <div class="api-card">
+                    <div class="api-card-image" onclick="refreshImage(this, '${apiUrl}')">
+                        <img src="${apiUrl}?t=${Date.now()}" alt="${description}" loading="lazy" onerror="handleMediaError(this, '${apiUrl}')">
+                        <div class="image-overlay">
+                            <span class="refresh-hint"><i class="bi bi-arrow-clockwise"></i> 点击刷新</span>
+                        </div>
+                        <span class="api-badge">${description}</span>
+                    </div>
+                    <div class="api-card-info">
+                        <p class="api-hint">👆点击图片可刷新预览</p>
+                        <p class="api-url">${apiUrl}</p>
+                    </div>
+                </div>
+                `;
             }
+        });
 
-            apiTableHtml += `
-                <tr>
-                    <td class="text-nowrap"><code>/${key}</code></td>
-                    <td>${entry.description || '<em class="text-muted">无描述</em>'}</td>
-                    <td class="text-nowrap">${entry.method === 'proxy' ? '<span class="badge bg-primary">服务器代理</span>' : '<span class="badge bg-secondary">浏览器重定向</span>'}</td>
-                    <td>${paramsDesc}</td>
-                </tr>`;
-        }); // End loop for endpoints within group
-
-        apiTableHtml += `
-            </tbody>
-        </table>
-        </div>`;
-        groupedApiHtml += apiTableHtml; // Add table for the group
-    }); // End loop for groups
-
-    groupedApiHtml += `<p class="text-muted mt-2"><small><span class="text-danger fw-bold">*</span> 表示必需参数</small></p>`;
+        apiCardsHtml += `</div></div>`; // Close cards-row and group-section
+    });
+    apiCardsHtml += '</div>';
 
 
     // Construct the full HTML page with Bootstrap 5
@@ -1007,6 +1017,25 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
         .badge { border-radius: 0.375rem; padding: 0.25em 0.6em; font-weight: 500; font-size: 0.75rem; } /* Smaller badge */
         .bg-primary { background-color: var(--v0-primary) !important; color: var(--v0-primary-foreground); }
         .bg-secondary { background-color: var(--v0-secondary) !important; color: var(--v0-secondary-foreground); }
+
+        /* API Cards Grid Styles */
+        .api-cards-grid { margin-top: 2rem; }
+        .group-section { margin-bottom: 2rem; }
+        .group-title-home { font-size: 1.25rem; font-weight: 600; color: var(--v0-foreground); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--v0-border); }
+        .cards-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+        .api-card { background: var(--v0-card); border: 1px solid var(--v0-border); border-radius: var(--v0-radius-lg); overflow: hidden; box-shadow: var(--v0-shadow); transition: transform 0.2s, box-shadow 0.2s; }
+        .api-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
+        .api-card-image { position: relative; height: 200px; overflow: hidden; cursor: pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .api-card-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s, opacity 0.3s; }
+        .api-card-image:hover img { transform: scale(1.05); }
+        .image-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+        .api-card-image:hover .image-overlay { opacity: 1; }
+        .refresh-hint { color: #fff; font-size: 0.875rem; font-weight: 500; padding: 0.5rem 1rem; background: rgba(0,0,0,0.5); border-radius: var(--v0-radius); }
+        .api-badge { position: absolute; bottom: 0.75rem; right: 0.75rem; background: #ffd700; color: #000; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+        .api-card-info { padding: 1rem; }
+        .api-hint { font-size: 0.8rem; color: var(--v0-muted-foreground); margin-bottom: 0.5rem; }
+        .api-url { font-size: 0.8rem; color: #3b82f6; word-break: break-all; margin: 0; }
+        .api-url:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -1033,39 +1062,10 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
             </div>
         </div>
 
-        <div class="card mb-4">
-            <div class="card-header"><h2 class="h5 mb-0">可用 API 端点</h2></div>
-            <div class="card-body">
-                ${groupedApiHtml}
-            </div>
-        </div>
+        <!-- API 图片卡片展示 -->
+        ${apiCardsHtml}
 
-        <div class="card">
-             <div class="card-header"><h2 class="h5 mb-0">示例</h2></div>
-             <div class="card-body">
-                <div class="row row-cols-1 row-cols-md-3 g-4">
-                    <div class="col">
-                        <div class="card h-100 text-center">
-                            <img src="/doro" class="card-img-top p-3" alt="随机 doro 贴纸">
-                            <div class="card-footer text-muted"><small>随机 Doro 贴纸 (<code>/doro</code>)</small></div>
-                        </div>
-                    </div>
-                     <div class="col">
-                        <div class="card h-100 text-center">
-                            <img src="/anime1" class="card-img-top p-3" alt="随机二次元图片">
-                            <div class="card-footer text-muted"><small>随机二次元图片 (<code>/anime1</code>)</small></div>
-                        </div>
-                    </div>
-                     <div class="col">
-                        <div class="card h-100 text-center">
-                            <img src="/baisi" class="card-img-top p-3" alt="白丝图片">
-                            <div class="card-footer text-muted"><small>白丝图片 (<code>/baisi</code>)</small></div>
-                        </div>
-                    </div>
-                </div>
-                <p class="text-muted mt-3"><small>注意：示例图片可能因 API 端点配置更改而变化。</small></p>
-             </div>
-        </div>
+
     </main>
     <!-- Popper.js -->
     <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/popper.js/2.11.2/umd/popper.min.js"></script>
@@ -1101,6 +1101,79 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
                 });
             }
         });
+        
+        // 处理图片加载错误，尝试切换为视频
+        function handleMediaError(imgElement, apiUrl) {
+            // 防止重复处理
+            if (imgElement.dataset.hasError) return;
+            imgElement.dataset.hasError = 'true';
+
+            console.log('Image load failed, trying video for:', apiUrl);
+
+            // 创建 video 元素
+            const video = document.createElement('video');
+            video.src = apiUrl + '?t=' + Date.now();
+            video.autoplay = true;
+            video.muted = true;
+            video.loop = true;
+            video.playsInline = true;
+            
+            // 复制 img 的样式类 (虽然这里主要用行内样式，但保持一致性)
+            video.style.width = '100%';
+            video.style.height = '100%';
+            video.style.objectFit = 'cover';
+            
+            // 替换 img 元素
+            const parent = imgElement.parentNode;
+            parent.replaceChild(video, imgElement);
+            
+            // 如果视频也加载失败，显示原来的错误占位图
+            video.onerror = function() {
+                console.log('Video also failed for:', apiUrl);
+                const errorImg = document.createElement('img');
+                errorImg.src = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22150%22><rect fill=%22%23f0f0f0%22 width=%22200%22 height=%22150%22/><text fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22>加载失败</text></svg>';
+                errorImg.style.width = '100%';
+                errorImg.style.height = '100%';
+                errorImg.style.objectFit = 'cover';
+                parent.replaceChild(errorImg, video);
+            };
+        }
+
+        // 点击刷新图片/视频函数
+        function refreshImage(container, apiUrl) {
+            const media = container.querySelector('img, video');
+            if (media) {
+                media.style.opacity = '0.5';
+                const newSrc = apiUrl + '?t=' + Date.now();
+                
+                if (media.tagName === 'IMG') {
+                    // 重置错误标记，以便再次失败时能重新尝试转视频
+                    delete media.dataset.hasError;
+                    
+                    const newImg = new Image();
+                    newImg.onload = function() {
+                        media.src = newSrc;
+                        media.style.opacity = '1';
+                    };
+                    newImg.onerror = function() {
+                        // 如果刷新时图片加载失败，直接触发 handleMediaError
+                        handleMediaError(media, apiUrl);
+                        // 注意：handleMediaError 会替换元素，所以不需要这里恢复 opacity
+                    };
+                    newImg.src = newSrc;
+                } else if (media.tagName === 'VIDEO') {
+                    media.src = newSrc;
+                    // 视频加载开始即恢复透明度
+                    media.onloadeddata = function() {
+                        media.style.opacity = '1';
+                    };
+                    media.onerror = function() {
+                        // 视频刷新失败，可能变回图片了？或者网络问题。保持视频容器，或者可以尝试切回图片检测
+                        media.style.opacity = '1'; 
+                    };
+                }
+            }
+        }
     </script>
 </body>
 </html>
@@ -1650,15 +1723,42 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         .h3 { font-size: 1.25rem; font-weight: 600; } /* Smaller main heading */
         .spinner-border { color: var(--v0-primary); }
         .spinner-border-sm { width: 1rem; height: 1rem; border-width: 0.15em; }
+
+        /* Table View Styles */
+        .view-toggle-btn.active { background-color: var(--v0-primary); color: var(--v0-primary-foreground); }
+        .table-view-container { display: none; }
+        .table-view-container.active { display: block; }
+        .card-view-container { display: block; }
+        .card-view-container.hidden { display: none; }
+        
+        .api-table { width: 100%; border-collapse: collapse; background: var(--v0-card); border-radius: var(--v0-radius-lg); overflow: hidden; box-shadow: var(--v0-shadow); table-layout: fixed; }
+        .api-table th { background: var(--v0-muted); color: var(--v0-muted-foreground); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 0.5rem; text-align: left; border-bottom: 1px solid var(--v0-border); white-space: nowrap; }
+        .api-table td { padding: 0.5rem 0.5rem; border-bottom: 1px solid var(--v0-border); font-size: 0.875rem; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .api-table tr:hover { background-color: var(--v0-muted); }
+        .api-table .editable-cell { display: block; cursor: text; padding: 0.375rem 0.5rem; border-radius: var(--v0-radius); transition: background-color 0.15s; min-width: 60px; background-color: #f8f9fa; border: 1px solid #dee2e6; overflow: hidden; text-overflow: ellipsis; }
+        .api-table .editable-cell:hover { background-color: #e9ecef; border-color: #ced4da; }
+        .api-table .editable-cell:focus { outline: none; background-color: #fff; box-shadow: 0 0 0 2px var(--v0-primary); border-color: var(--v0-primary); }
+        .api-table .url-cell { max-width: 250px; }
+        .api-table .action-cell { white-space: nowrap; text-align: center; }
+        .api-table .group-row { background-color: var(--v0-secondary); }
+        .api-table .group-row td { font-weight: 600; color: var(--v0-primary); padding: 0.5rem 1rem; }
+        .api-table select.form-select-sm { font-size: 0.8rem; padding: 0.25rem 1.5rem 0.25rem 0.5rem; }
+        .add-row-btn { width: 100%; padding: 0.75rem; margin-top: 0.5rem; border: 2px dashed var(--v0-border); background: transparent; color: var(--v0-muted-foreground); border-radius: var(--v0-radius); cursor: pointer; transition: all 0.15s; }
+        .add-row-btn:hover { border-color: var(--v0-primary); color: var(--v0-primary); background: var(--v0-muted); }
     </style>
 </head>
 <body>
     <main class="container">
         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
             <h1 class="h3 mb-0">API 转发配置管理</h1>
-             <div class="d-flex gap-2 flex-wrap">
+             <div class="d-flex gap-2 flex-wrap align-items-center">
+                 <!-- View Toggle Buttons -->
+                 <div class="btn-group me-2" role="group" aria-label="视图切换">
+                     <button type="button" class="btn btn-outline-secondary view-toggle-btn" id="table-view-btn" onclick="switchView('table')" title="表格视图"><i class="bi bi-table"></i></button>
+                     <button type="button" class="btn btn-outline-secondary view-toggle-btn active" id="card-view-btn" onclick="switchView('card')" title="卡片视图"><i class="bi bi-card-text"></i></button>
+                 </div>
                  <button type="button" class="btn btn-info fetch-emoticons-button" onclick="fetchAndAddEmoticons(this)" disabled><i class="bi bi-cloud-download"></i> 在线拉取表情包</button>
-                 <button type="button" class="btn btn-secondary" onclick="addNewGroup()"><i class="bi bi-folder-plus"></i> 添加新分组</button> <!-- Add New Group Button -->
+                 <button type="button" class="btn btn-secondary" onclick="addNewGroup()"><i class="bi bi-folder-plus"></i> 添加新分组</button>
                  <button type="button" class="btn btn-success add-endpoint-button" onclick="addApiEndpoint()"><i class="bi bi-plus-lg"></i> 添加新 API 端点</button>
                  <a href="/admin-logout" class="btn btn-outline-secondary"><i class="bi bi-box-arrow-right"></i> 退出登录</a>
              </div>
@@ -1694,13 +1794,39 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         <!-- Global Settings Card Removed -->
 
         <form id="config-form">
-            <div id="api-configs-container">
-                <!-- Initial Loading Indicator -->
-                 <div class="text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">正在加载配置...</span>
+            <!-- Table View Container -->
+            <div id="table-view-container" class="table-view-container">
+                <div class="table-responsive">
+                    <table class="api-table" id="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="table-select-all" onchange="toggleTableSelectAll(this.checked)"></th>
+                                <th style="width: 140px;">端点路径</th>
+                                <th style="width: 80px;">分组</th>
+                                <th style="width: 120px;">描述</th>
+                                <th>目标 URL</th>
+                                <th style="width: 70px;">类型</th>
+                                <th style="width: 80px;">处理方式</th>
+                                <th style="width: 80px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="api-table-body">
+                        </tbody>
+                    </table>
+                </div>
+                <button type="button" class="add-row-btn" onclick="addTableRow()"><i class="bi bi-plus-lg"></i> 添加新行</button>
+            </div>
+
+            <!-- Card View Container (Original) -->
+            <div id="card-view-container" class="card-view-container">
+                <div id="api-configs-container">
+                    <!-- Initial Loading Indicator -->
+                     <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">正在加载配置...</span>
+                        </div>
+                        <p class="mt-2">正在加载配置...</p>
                     </div>
-                    <p class="mt-2">正在加载配置...</p>
                 </div>
             </div>
 
@@ -1724,6 +1850,231 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         const messageDiv = document.getElementById('message');
         let currentConfigData = { apiUrls: {} };
         let bootstrapTooltipList = [];
+        let currentView = 'card'; // 'card' or 'table'
+
+        // === View Switching Functions ===
+        function switchView(view) {
+            currentView = view;
+            const tableViewBtn = document.getElementById('table-view-btn');
+            const cardViewBtn = document.getElementById('card-view-btn');
+            const tableContainer = document.getElementById('table-view-container');
+            const cardContainer = document.getElementById('card-view-container');
+            
+            if (view === 'table') {
+                tableViewBtn.classList.add('active');
+                cardViewBtn.classList.remove('active');
+                tableContainer.classList.add('active');
+                cardContainer.classList.add('hidden');
+                renderTableView();
+            } else {
+                cardViewBtn.classList.add('active');
+                tableViewBtn.classList.remove('active');
+                tableContainer.classList.remove('active');
+                cardContainer.classList.remove('hidden');
+                renderConfig(); // Refresh cards from currentConfigData
+            }
+        }
+
+        function renderTableView() {
+            const tbody = document.getElementById('api-table-body');
+            tbody.innerHTML = '';
+            
+            const apiUrls = currentConfigData.apiUrls || {};
+            const groupedEndpoints = {};
+            
+            // Group endpoints
+            for (const apiKey in apiUrls) {
+                const entry = apiUrls[apiKey];
+                const group = entry.group || '默认分组';
+                if (!groupedEndpoints[group]) { groupedEndpoints[group] = []; }
+                groupedEndpoints[group].push({ key: apiKey, config: entry });
+            }
+            
+            // Sort groups
+            const sortedGroups = Object.keys(groupedEndpoints).sort((a, b) => {
+                const order = {'通用转发': 1, 'AI绘图': 2, '二次元图片': 3, '三次元图片': 4, '表情包': 5, '696898': 6, '默认分组': 99};
+                return (order[a] || 50) - (order[b] || 50);
+            });
+            
+            sortedGroups.forEach(groupName => {
+                // Sort endpoints within group
+                groupedEndpoints[groupName].sort((a, b) => a.key.localeCompare(b.key));
+                
+                // Add group header row
+                const groupRow = document.createElement('tr');
+                groupRow.className = 'group-row';
+                groupRow.innerHTML = '<td colspan=\"8\"><i class=\"bi bi-folder\"></i> ' + groupName + ' (' + groupedEndpoints[groupName].length + ')</td>';
+                tbody.appendChild(groupRow);
+                
+                // Add endpoint rows
+                groupedEndpoints[groupName].forEach(item => {
+                    const row = createTableRow(item.key, item.config);
+                    tbody.appendChild(row);
+                });
+            });
+            
+            if (Object.keys(apiUrls).length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = '<td colspan="7" class="text-center text-muted py-4">暂无 API 端点，点击下方"添加新行"开始</td>';
+                tbody.appendChild(emptyRow);
+            }
+        }
+
+        function createTableRow(apiKey, config) {
+            const row = document.createElement('tr');
+            row.setAttribute('data-api-key', apiKey);
+            
+            const typeImageSelected = (!config.type || config.type === 'image') ? 'selected' : '';
+            const typeVideoSelected = config.type === 'video' ? 'selected' : '';
+            const methodRedirectSelected = config.method === 'redirect' ? 'selected' : '';
+            const methodProxySelected = config.method === 'proxy' ? 'selected' : '';
+            
+            row.innerHTML = '<td><input type="checkbox" class="form-check-input table-row-checkbox" value="' + apiKey + '" onchange="updateTableSelectState()"></td>' +
+                '<td><span class="editable-cell" contenteditable="true" data-field="key" data-original="' + apiKey + '">' + apiKey + '</span></td>' +
+                '<td><span class="editable-cell" contenteditable="true" data-field="group">' + (config.group || '默认分组') + '</span></td>' +
+                '<td><span class="editable-cell" contenteditable="true" data-field="description">' + (config.description || '') + '</span></td>' +
+                '<td class="url-cell" title="' + (config.url || '') + '"><span class="editable-cell" contenteditable="true" data-field="url">' + (config.url || '') + '</span></td>' +
+                '<td><select class="form-select form-select-sm" data-field="type" onchange="markRowChanged(this)">' +
+                    '<option value="image" ' + typeImageSelected + '>图片</option>' +
+                    '<option value="video" ' + typeVideoSelected + '>视频</option>' +
+                '</select></td>' +
+                '<td><select class="form-select form-select-sm" data-field="method" onchange="markRowChanged(this)">' +
+                    '<option value="redirect" ' + methodRedirectSelected + '>重定向</option>' +
+                    '<option value="proxy" ' + methodProxySelected + '>代理</option>' +
+                '</select></td>' +
+                '<td class="action-cell">' +
+                    '<button type="button" class="btn btn-outline-primary btn-sm me-1" onclick="editInCardView(\\\'' + apiKey + '\\\')" title="详细编辑"><i class="bi bi-pencil"></i></button>' +
+                    '<button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteTableRow(this)" title="删除"><i class="bi bi-trash"></i></button>' +
+                '</td>';
+            
+            // Add blur event listeners for editable cells
+            row.querySelectorAll('.editable-cell').forEach(function(cell) {
+                cell.addEventListener('blur', function() {
+                    syncTableCellToConfig(this);
+                });
+                cell.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.blur();
+                    }
+                });
+            });
+            
+            return row;
+        }
+
+        function syncTableCellToConfig(cell) {
+            const row = cell.closest('tr');
+            const originalKey = row.getAttribute('data-api-key');
+            const field = cell.getAttribute('data-field');
+            const newValue = cell.textContent.trim();
+            
+            if (field === 'key') {
+                const sanitizedKey = sanitizeApiKey(newValue);
+                if (sanitizedKey !== newValue) {
+                    cell.textContent = sanitizedKey;
+                }
+                if (sanitizedKey && sanitizedKey !== originalKey) {
+                    // Rename the key in config
+                    if (currentConfigData.apiUrls[originalKey]) {
+                        currentConfigData.apiUrls[sanitizedKey] = currentConfigData.apiUrls[originalKey];
+                        delete currentConfigData.apiUrls[originalKey];
+                        row.setAttribute('data-api-key', sanitizedKey);
+                        row.querySelector('.table-row-checkbox').value = sanitizedKey;
+                    }
+                }
+            } else if (currentConfigData.apiUrls[originalKey]) {
+                currentConfigData.apiUrls[originalKey][field] = newValue;
+            }
+        }
+
+        function markRowChanged(element) {
+            const row = element.closest('tr');
+            const apiKey = row.getAttribute('data-api-key');
+            const field = element.getAttribute('data-field');
+            const value = element.value;
+            
+            if (currentConfigData.apiUrls[apiKey]) {
+                currentConfigData.apiUrls[apiKey][field] = value;
+            }
+        }
+
+        function addTableRow() {
+            const newKey = 'new_' + Date.now();
+            currentConfigData.apiUrls[newKey] = {
+                group: '默认分组',
+                description: '',
+                url: '',
+                type: 'image',
+                method: 'redirect',
+                queryParams: [],
+                proxySettings: {}
+            };
+            // Append new row directly to tbody instead of full re-render
+            const tbody = document.getElementById('api-table-body');
+            const newRowConfig = currentConfigData.apiUrls[newKey];
+            const row = createTableRow(newKey, newRowConfig);
+            row.style.backgroundColor = '#fffce6'; // Highlight new row
+            tbody.appendChild(row);
+            // Focus on the new row's key cell
+            const keyCell = row.querySelector('.editable-cell[data-field="key"]');
+            if (keyCell) {
+                keyCell.focus();
+                keyCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const range = document.createRange();
+                range.selectNodeContents(keyCell);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        }
+
+        function deleteTableRow(button) {
+            const row = button.closest('tr');
+            const apiKey = row.getAttribute('data-api-key');
+            delete currentConfigData.apiUrls[apiKey];
+            row.remove();
+            showMessage('端点 /' + apiKey + ' 已删除。点击"保存所有配置"以确认。', 'success');
+            handleCheckboxChange();
+        }
+
+        function editInCardView(apiKey) {
+            // Switch to card view and scroll to the specific card
+            switchView('card');
+            setTimeout(function() {
+                const card = document.querySelector('.card[data-api-key="' + apiKey + '"]');
+                if (card) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.style.boxShadow = '0 0 0 3px var(--v0-primary)';
+                    setTimeout(function() { card.style.boxShadow = ''; }, 2000);
+                }
+            }, 100);
+        }
+
+        function toggleTableSelectAll(checked) {
+            document.querySelectorAll('.table-row-checkbox').forEach(cb => { cb.checked = checked; });
+            updateTableSelectState();
+        }
+
+        function updateTableSelectState() {
+            const allCheckboxes = document.querySelectorAll('.table-row-checkbox');
+            const checkedCount = document.querySelectorAll('.table-row-checkbox:checked').length;
+            const selectAll = document.getElementById('table-select-all');
+            
+            if (allCheckboxes.length > 0 && checkedCount === allCheckboxes.length) {
+                selectAll.checked = true;
+                selectAll.indeterminate = false;
+            } else if (checkedCount > 0) {
+                selectAll.checked = false;
+                selectAll.indeterminate = true;
+            } else {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+            }
+            handleCheckboxChange();
+            // Sync card view checkboxes if needed? For now just update batch actions
+        }
+
 
         function showMessage(text, type = 'success') {
             const msgDiv = document.getElementById('message');
@@ -1768,71 +2119,100 @@ app.get('/admin', checkAdminAuth, (req, res) => {
              bootstrapTooltipList = [];
         }
 
+        // Remove API endpoint function for card view
+        function removeApiEndpoint(card) {
+            if (!card) return;
+            const apiKey = card.getAttribute('data-api-key');
+            delete currentConfigData.apiUrls[apiKey];
+            card.remove(); // Remove from DOM
+            showMessage('端点 /' + apiKey + ' 已删除。点击"保存所有配置"以确认。', 'success');
+            // Update batch selection state if needed
+            handleCheckboxChange();
+        }
+
         function renderApiEndpoint(apiKey, configEntry) {
             const card = document.createElement('div');
             card.className = 'card';
             card.setAttribute('data-api-key', apiKey);
 
             const cardHeader = document.createElement('div');
-            cardHeader.className = 'card-header d-flex justify-content-between align-items-center'; // Use flexbox for alignment
-            cardHeader.innerHTML = \`
-                <div class="d-flex align-items-center">
-                     <input class="form-check-input me-2 endpoint-checkbox" type="checkbox" value="\${apiKey}" onchange="handleCheckboxChange()">
-                     <span>端点: /<input type="text" value="\${apiKey}" class="api-key-input" aria-label="API 端点路径" placeholder="路径名" required></span>
-                </div>
-                <button type="button" class="btn btn-danger btn-sm delete-endpoint-button" aria-label="删除此端点" onclick="removeApiEndpoint(this.closest('.card'))">
-                    <i class="bi bi-trash"></i> 删除
-                </button>\`;
+            cardHeader.className = 'card-header d-flex justify-content-between align-items-center';
+            cardHeader.innerHTML = 
+                '<div class="d-flex align-items-center">' +
+                     '<input class="form-check-input me-2 endpoint-checkbox" type="checkbox" value="' + apiKey + '" onchange="handleCheckboxChange()">' +
+                     '<span>端点: /<input type="text" value="' + apiKey + '" class="api-key-input" aria-label="API 端点路径" placeholder="路径名" required></span>' +
+                '</div>' +
+                '<button type="button" class="btn btn-danger btn-sm delete-endpoint-button" aria-label="删除此端点" onclick="removeApiEndpoint(this.closest(\\\'.card\\\'))">' +
+                    '<i class="bi bi-trash"></i> 删除' +
+                '</button>';
             card.appendChild(cardHeader);
 
             const cardBody = document.createElement('div');
             cardBody.className = 'card-body';
 
             // Group Input
-            cardBody.innerHTML += \`
-                <div class="row mb-3 align-items-center">
-                    <label for="\${apiKey}-group" class="col-sm-3 col-form-label text-sm-end" title="用于分类显示的组名">分组:</label>
-                    <div class="col-sm-9">
-                        <input type="text" class="form-control" id="\${apiKey}-group" name="\${apiKey}-group" value="\${configEntry.group || ''}" placeholder="例如: AI绘图, 表情包">
-                    </div>
-                </div>\`;
+            cardBody.innerHTML += 
+                '<div class="row mb-3 align-items-center">' +
+                    '<label for="' + apiKey + '-group" class="col-sm-3 col-form-label text-sm-end" title="用于分类显示的组名">分组:</label>' +
+                    '<div class="col-sm-9">' +
+                        '<input type="text" class="form-control" id="' + apiKey + '-group" name="' + apiKey + '-group" value="' + (configEntry.group || '') + '" placeholder="例如: AI绘图, 表情包">' +
+                    '</div>' +
+                '</div>';
 
-            // Description, URL, Method... (rest of the innerHTML generation is the same as before)
-             // Description
-            cardBody.innerHTML += \`
-                <div class="row mb-3 align-items-center">
-                    <label for="\${apiKey}-description" class="col-sm-3 col-form-label text-sm-end" title="这个 API 端点的用途说明">描述:</label>
-                    <div class="col-sm-9">
-                        <textarea class="form-control" id="\${apiKey}-description" name="\${apiKey}-description" placeholder="例如：获取随机猫咪图片">\${configEntry.description || ''}</textarea>
-                    </div>
-                </div>\`;
+             // Type Dropdown
+            const typeImageSelected = (!configEntry.type || configEntry.type === 'image') ? 'selected' : '';
+            const typeVideoSelected = configEntry.type === 'video' ? 'selected' : '';
+            
+            cardBody.innerHTML += 
+                '<div class="row mb-3 align-items-center">' +
+                    '<label for="' + apiKey + '-type" class="col-sm-3 col-form-label text-sm-end" title="API 返回的内容类型">类型:</label>' +
+                    '<div class="col-sm-9">' +
+                        '<select class="form-select" id="' + apiKey + '-type" name="' + apiKey + '-type">' +
+                            '<option value="image" ' + typeImageSelected + '>图片 (Image)</option>' +
+                            '<option value="video" ' + typeVideoSelected + '>视频 (Video)</option>' +
+                        '</select>' +
+                    '</div>' +
+                '</div>';
+
+            // Description
+            cardBody.innerHTML += 
+                '<div class="row mb-3 align-items-center">' +
+                    '<label for="' + apiKey + '-description" class="col-sm-3 col-form-label text-sm-end" title="这个 API 端点的用途说明">描述:</label>' +
+                    '<div class="col-sm-9">' +
+                        '<textarea class="form-control" id="' + apiKey + '-description" name="' + apiKey + '-description" placeholder="例如：获取随机猫咪图片">' + (configEntry.description || '') + '</textarea>' +
+                    '</div>' +
+                '</div>';
 
             // URL
-            cardBody.innerHTML += \`
-                <div class="row mb-3 align-items-center">
-                    <label for="\${apiKey}-url" class="col-sm-3 col-form-label text-sm-end" title="目标 API 的基础地址">目标 URL:</label>
-                    <div class="col-sm-8">
-                        <input type="url" class="form-control" id="\${apiKey}-url" name="\${apiKey}-url" value="\${configEntry.url || ''}" placeholder="https://api.example.com/data" required>
-                    </div>
-                     <div class="col-sm-1">
-                         \${configEntry.urlConstruction && configEntry.urlConstruction.startsWith('special_') ? '<i class="bi bi-exclamation-triangle-fill text-warning tooltip-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="注意: 此端点原配置包含特殊 URL 构建逻辑 ('+configEntry.urlConstruction+'), 修改基础 URL 可能影响其功能。"></i>' : ''}
-                     </div>
-                </div>\`;
+            const urlWarning = (configEntry.urlConstruction && configEntry.urlConstruction.startsWith('special_')) ? 
+                '<i class="bi bi-exclamation-triangle-fill text-warning tooltip-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="注意: 此端点原配置包含特殊 URL 构建逻辑 (' + configEntry.urlConstruction + '), 修改基础 URL 可能影响其功能。"></i>' : '';
+            
+            cardBody.innerHTML += 
+                '<div class="row mb-3 align-items-center">' +
+                    '<label for="' + apiKey + '-url" class="col-sm-3 col-form-label text-sm-end" title="目标 API 的基础地址">目标 URL:</label>' +
+                    '<div class="col-sm-8">' +
+                        '<input type="url" class="form-control" id="' + apiKey + '-url" name="' + apiKey + '-url" value="' + (configEntry.url || '') + '" placeholder="https://api.example.com/data" required>' +
+                    '</div>' +
+                     '<div class="col-sm-1">' + urlWarning + '</div>' +
+                '</div>';
 
             // Method Dropdown
-            cardBody.innerHTML += \`
-                <div class="row mb-3 align-items-center">
-                    <label for="\${apiKey}-method" class="col-sm-3 col-form-label text-sm-end" title="服务器处理此请求的方式">处理方式:</label>
-                    <div class="col-sm-8">
-                        <select class="form-select" id="\${apiKey}-method" name="\${apiKey}-method">
-                            <option value="redirect" \${configEntry.method === 'redirect' ? 'selected' : ''}>浏览器重定向 (302)</option>
-                            <option value="proxy" \${configEntry.method === 'proxy' ? 'selected' : ''}>服务器代理请求</option>
-                        </select>
-                    </div>
-                     <div class="col-sm-1">
-                         <i class="bi bi-info-circle tooltip-icon" data-bs-toggle="tooltip" data-bs-placement="top" title='"重定向": 服务器告诉浏览器去访问目标 URL。"代理": 服务器代替浏览器去访问目标 URL，然后将结果返回给浏览器。'></i>
-                     </div>
-                </div>\`;
+            const methodRedirectSelected = configEntry.method === 'redirect' ? 'selected' : '';
+            const methodProxySelected = configEntry.method === 'proxy' ? 'selected' : '';
+
+            cardBody.innerHTML += 
+                '<div class="row mb-3 align-items-center">' +
+                    '<label for="' + apiKey + '-method" class="col-sm-3 col-form-label text-sm-end" title="服务器处理此请求的方式">处理方式:</label>' +
+                    '<div class="col-sm-8">' +
+                        '<select class="form-select" id="' + apiKey + '-method" name="' + apiKey + '-method">' +
+                            '<option value="redirect" ' + methodRedirectSelected + '>浏览器重定向 (302)</option>' +
+                            '<option value="proxy" ' + methodProxySelected + '>服务器代理请求</option>' +
+                        '</select>' +
+                    '</div>' +
+                     '<div class="col-sm-1">' +
+                         '<i class="bi bi-info-circle tooltip-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="\\\'重定向\\\': 服务器告诉浏览器去访问目标 URL。\\\'代理\\\': 服务器代替浏览器去访问目标 URL，然后将结果返回给浏览器。"></i>' +
+                     '</div>' +
+                '</div>';
 
             // Proxy Settings Container
             const proxySettingsDiv = document.createElement('div');
@@ -2082,44 +2462,18 @@ app.get('/admin', checkAdminAuth, (req, res) => {
              cardElement.querySelector('.api-key-input').focus({ preventScroll: true });
         }
 
-        function removeApiEndpoint(card) {
-            try {
-                if (!card) { console.error("removeApiEndpoint called with null card"); return; }
-                const apiKeyInput = card.querySelector('.api-key-input');
-                const keyToRemove = apiKeyInput ? apiKeyInput.value : '(未知)';
-                
-                if (confirm(\`确定要删除端点 "\${keyToRemove}" 吗？此操作将在保存后生效且无法撤销。\`)) {
-                    const parentGroupContainer = card.parentElement;
-                    card.remove();
-                    
-                    try {
-                        handleCheckboxChange(); // Update batch counts after removing
-                    } catch (e) { console.warn("Error updating batch buttons:", e); }
+        // Old removeApiEndpoint removed
 
-                    const container = document.getElementById('api-configs-container');
-                    if (container && !container.querySelector('.card')) {
-                         container.innerHTML = '<div class="alert alert-info">当前没有配置任何 API 端点。点击“添加新 API 端点”开始。</div>';
-                         const batchSection = document.getElementById('batch-actions-section');
-                         if (batchSection) batchSection.style.display = 'none';
-                    } else if (parentGroupContainer && !parentGroupContainer.querySelector('.card')) {
-                         const groupTitle = parentGroupContainer.previousElementSibling;
-                         if (groupTitle && groupTitle.classList.contains('group-title')) {
-                             groupTitle.remove();
-                         }
-                         parentGroupContainer.remove();
-                    }
-                    showMessage(\`端点 \${keyToRemove} 已标记为删除。点击“保存所有配置”以确认。\`, 'success');
-                }
-            } catch (error) {
-                console.error("Error in removeApiEndpoint:", error);
-                showMessage("删除操作出错: " + error.message, "error");
-            }
-        }
 
         // --- Batch Action Functions ---
 
+
+
         function getSelectedApiKeys() {
-            return Array.from(apiConfigsContainer.querySelectorAll('.endpoint-checkbox:checked')).map(cb => cb.value);
+            const cardKeys = Array.from(document.querySelectorAll('.endpoint-checkbox:checked')).map(cb => cb.value);
+            const tableKeys = Array.from(document.querySelectorAll('.table-row-checkbox:checked')).map(cb => cb.value);
+            // Use Set to unique keys if they overlap (though physically they are different elements)
+            return [...new Set([...cardKeys, ...tableKeys])];
         }
 
         function updateBatchActionButtonsState() {
@@ -2197,39 +2551,45 @@ app.get('/admin', checkAdminAuth, (req, res) => {
                     showMessage('请先选择要删除的端点。', 'error');
                     return;
                 }
-                if (confirm(\`确定要删除选中的 \${selectedKeys.length} 个端点吗？此操作将在保存后生效且无法撤销。\`)) {
-                    let deletedCount = 0;
-                    const container = document.getElementById('api-configs-container');
+                
+                // No confirmation
+                let deletedCount = 0;
+                const container = document.getElementById('api-configs-container');
+                
+                selectedKeys.forEach(apiKey => {
+                    // Delete from data
+                    delete currentConfigData.apiUrls[apiKey];
                     
-                    selectedKeys.forEach(apiKey => {
-                        const card = container ? container.querySelector(\`.card[data-api-key="\${apiKey}"]\`) : null;
-                        if (card) {
-                            const parentGroupContainer = card.parentElement;
-                            card.remove();
-                            deletedCount++;
-                             // Check if group is now empty
-                             if (parentGroupContainer && !parentGroupContainer.querySelector('.card')) {
-                                 const groupTitle = parentGroupContainer.previousElementSibling;
-                                 if (groupTitle && groupTitle.classList.contains('group-title')) {
-                                     groupTitle.remove();
-                                 }
-                                 parentGroupContainer.remove();
-                             }
+                    // Remove from Card View
+                    const card = container ? container.querySelector('.card[data-api-key="' + apiKey + '"]') : null;
+                    if (card) {
+                        const parentGroupContainer = card.parentElement;
+                        card.remove();
+                        // Check if group is now empty
+                        if (parentGroupContainer && !parentGroupContainer.querySelector('.card')) {
+                            const groupTitle = parentGroupContainer.previousElementSibling;
+                            if (groupTitle && groupTitle.classList.contains('group-title')) {
+                                groupTitle.remove();
+                            }
+                            parentGroupContainer.remove();
                         }
-                    });
+                    }
                     
-                    try {
-                        handleCheckboxChange(); // Update counts and button states
-                    } catch (e) { console.warn("Error updating batch buttons:", e); }
+                    // Remove from Table View
+                    const tableRow = document.querySelector('tr[data-api-key="' + apiKey + '"]');
+                    if (tableRow) {
+                        tableRow.remove();
+                    }
+                    
+                    deletedCount++;
+                });
+                
+                try {
+                    handleCheckboxChange(); // Update counts and button states
+                } catch (e) { console.warn("Error updating batch buttons:", e); }
 
-                    showMessage(\`已标记删除 \${deletedCount} 个端点。点击“保存所有配置”以确认。\`, 'success');
-                    
-                     if (container && !container.querySelector('.card')) {
-                         container.innerHTML = '<div class="alert alert-info">当前没有配置任何 API 端点。点击“添加新 API 端点”开始。</div>';
-                         const batchSection = document.getElementById('batch-actions-section');
-                         if (batchSection) batchSection.style.display = 'none';
-                     }
-                }
+                showMessage('已标记删除 ' + deletedCount + ' 个端点。点击“保存所有配置”以确认。', 'success');
+                
             } catch (error) {
                 console.error("Error in batchDeleteEndpoints:", error);
                 showMessage("批量删除操作出错: " + error.message, "error");
@@ -2393,47 +2753,72 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         async function saveConfig(event) {
             event.preventDefault();
 
-            const updatedApiUrls = {};
-            const cards = apiConfigsContainer.querySelectorAll('.card[data-api-key]');
+            let updatedApiUrls = {};
             let hasError = false;
-            const usedApiKeys = new Set();
+            
+            // 如果当前是表格视图，直接使用 currentConfigData
+            if (currentView === 'table') {
+                // 验证表格数据
+                for (const apiKey in currentConfigData.apiUrls) {
+                    const entry = currentConfigData.apiUrls[apiKey];
+                    if (!apiKey || apiKey.startsWith('new_')) {
+                        showMessage('错误：发现未命名的 API 端点！请输入正确的路径名。', 'error');
+                        hasError = true;
+                        break;
+                    }
+                    if (!entry.url) {
+                        showMessage('错误：端点 /' + apiKey + ' 的目标 URL 不能为空！', 'error');
+                        hasError = true;
+                        break;
+                    }
+                }
+                if (!hasError) {
+                    updatedApiUrls = currentConfigData.apiUrls;
+                }
 
-            cards.forEach(card => {
+            } else {
+                // 卡片视图：从DOM收集数据
+                const cards = apiConfigsContainer.querySelectorAll('.card[data-api-key]');
+                const usedApiKeys = new Set();
+
+                cards.forEach(card => {
+
                  if (hasError) return;
                 const apiKeyInput = card.querySelector('.api-key-input');
                 const apiKey = sanitizeApiKey(apiKeyInput.value.trim());
                 const originalApiKey = card.getAttribute('data-api-key');
 
-                 if (!apiKey) { showMessage(\`错误：发现一个未命名（为空）的 API 端点！请输入路径名。\`, 'error'); apiKeyInput.focus(); hasError = true; return; }
-                 if (usedApiKeys.has(apiKey)) { showMessage(\`错误：API 端点路径 "/\${apiKey}" 重复！请确保每个端点路径唯一。\`, 'error'); apiKeyInput.focus(); hasError = true; return; }
+                 if (!apiKey) { showMessage('错误：发现一个未命名（为空）的 API 端点！请输入路径名。', 'error'); apiKeyInput.focus(); hasError = true; return; }
+                 if (usedApiKeys.has(apiKey)) { showMessage('错误：API 端点路径 "/' + apiKey + '" 重复！请确保每个端点路径唯一。', 'error'); apiKeyInput.focus(); hasError = true; return; }
                  usedApiKeys.add(apiKey);
 
-                const urlInput = card.querySelector(\`[id="\${originalApiKey}-url"]\`);
+                const urlInput = card.querySelector('[id="' + originalApiKey + '-url"]');
                 const configEntry = {
-                    group: card.querySelector(\`[id="\${originalApiKey}-group"]\`).value.trim() || '默认分组',
-                    description: card.querySelector(\`[id="\${originalApiKey}-description"]\`).value.trim(),
+                    group: card.querySelector('[id="' + originalApiKey + '-group"]').value.trim() || '默认分组',
+                    description: card.querySelector('[id="' + originalApiKey + '-description"]').value.trim(),
                     url: urlInput.value.trim(),
-                    method: card.querySelector(\`[id="\${originalApiKey}-method"]\`).value,
+                    type: card.querySelector('[id="' + originalApiKey + '-type"]').value,
+                    method: card.querySelector('[id="' + originalApiKey + '-method"]').value,
                     queryParams: [],
                     proxySettings: {}
                 };
 
-                if (!configEntry.url) { showMessage(\`错误：端点 /\${apiKey} 的目标 URL 不能为空！\`, 'error'); urlInput.focus(); hasError = true; return; }
+                if (!configEntry.url) { showMessage('错误：端点 /' + apiKey + ' 的目标 URL 不能为空！', 'error'); urlInput.focus(); hasError = true; return; }
 
                 // Collect Query Params... (same as before)
-                const paramItems = card.querySelectorAll(\`[id="\${originalApiKey}-params-list"] .param-item\`);
+                const paramItems = card.querySelectorAll('[id="' + originalApiKey + '-params-list"] .param-item');
                 const paramNames = new Set();
                 paramItems.forEach((paramItem) => {
                      if (hasError) return;
-                     const nameInput = paramItem.querySelector(\`input[id$="-name"]\`);
+                     const nameInput = paramItem.querySelector('input[id$="-name"]');
                      const paramName = nameInput.value.trim();
                      if (!paramName) return;
-                     if (paramNames.has(paramName)) { showMessage(\`错误：端点 /\${apiKey} 存在重复的查询参数名称 "\${paramName}"！\`, 'error'); nameInput.focus(); hasError = true; return; }
+                     if (paramNames.has(paramName)) { showMessage('错误：端点 /' + apiKey + ' 存在重复的查询参数名称 "' + paramName + '"！', 'error'); nameInput.focus(); hasError = true; return; }
                      paramNames.add(paramName);
-                     const descInput = paramItem.querySelector(\`textarea[id$="-desc"]\`);
-                     const requiredInput = paramItem.querySelector(\`input[id$="-required"]\`);
-                     const defaultInput = paramItem.querySelector(\`input[id$="-default"]\`);
-                     const validValuesInput = paramItem.querySelector(\`input[id$="-validValues"]\`);
+                     const descInput = paramItem.querySelector('textarea[id$="-desc"]');
+                     const requiredInput = paramItem.querySelector('input[id$="-required"]');
+                     const defaultInput = paramItem.querySelector('input[id$="-default"]');
+                     const validValuesInput = paramItem.querySelector('input[id$="-validValues"]');
                      const validValuesString = validValuesInput.value.trim();
                      configEntry.queryParams.push({
                          name: paramName, description: descInput.value.trim(), required: requiredInput.checked,
@@ -2446,8 +2831,8 @@ app.get('/admin', checkAdminAuth, (req, res) => {
 
                 // Collect Proxy Settings... (same as before)
                 if (configEntry.method === 'proxy') {
-                    const imageUrlFieldInput = card.querySelector(\`#\${originalApiKey}-imageUrlField\`);
-                    const fallbackActionSelect = card.querySelector(\`#\${originalApiKey}-fallbackAction\`);
+                    const imageUrlFieldInput = card.querySelector('#' + originalApiKey + '-imageUrlField');
+                    const fallbackActionSelect = card.querySelector('#' + originalApiKey + '-fallbackAction');
                     const originalConfigEntry = currentConfigData.apiUrls[originalApiKey];
                     if (apiKey === 'forward' && originalConfigEntry?.proxySettings?.imageUrlFieldFromParam) {
                          configEntry.proxySettings.imageUrlFieldFromParam = originalConfigEntry.proxySettings.imageUrlFieldFromParam;
@@ -2463,6 +2848,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
 
                 updatedApiUrls[apiKey] = configEntry;
             });
+            } // 关闭 else 分支
 
             if (hasError) { console.error("Validation errors found. Aborting save."); return; }
 
