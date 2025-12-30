@@ -808,61 +808,70 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
     <!-- Pinyin Library for Emoticon Fetching (using unpkg) -->
     <script src="https://unpkg.com/pinyin-pro@3.26.0/dist/index.js"></script> 
     <style>
-        /* v0 Style Adjustments */
+        /* Glassmorphism / Mica Style */
         :root {
-            --v0-background: #ffffff; /* White background */
-            --v0-foreground: #111827; /* Darker gray text (Tailwind gray-900) */
-            --v0-muted: #f9fafb; /* Lighter gray for muted backgrounds (Tailwind gray-50) */
-            --v0-muted-foreground: #6b7280; /* Medium gray for muted text (Tailwind gray-500) */
-            --v0-border: #e5e7eb; /* Light gray border (Tailwind gray-200) */
-            --v0-input: #d1d5db; /* Input border (Tailwind gray-300) */
-            --v0-primary: #111827; /* Primary color (button bg) - Dark gray */
-            --v0-primary-foreground: #ffffff; /* Text on primary button - White */
-            --v0-secondary: #f3f4f6; /* Secondary button bg (Tailwind gray-100) */
-            --v0-secondary-foreground: #1f2937; /* Text on secondary button (Tailwind gray-800) */
-            --v0-card: #ffffff; /* Card background */
-            --v0-card-foreground: #111827; /* Card text */
-            --v0-radius: 0.5rem; /* Default border radius */
-            --v0-radius-lg: 0.75rem; /* Larger radius */
-            --v0-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* Subtle shadow */
+            --v0-background: #ffffff;
+            --v0-foreground: #111827;
+            --v0-muted: rgba(249, 250, 251, 0.7);
+            --v0-muted-foreground: #6b7280;
+            --v0-border: rgba(255, 255, 255, 0.3);
+            --v0-border-solid: #e5e7eb;
+            --v0-input: #d1d5db;
+            --v0-primary: #111827;
+            --v0-primary-foreground: #ffffff;
+            --v0-secondary: rgba(255, 255, 255, 0.6);
+            --v0-secondary-foreground: #1f2937;
+            --v0-card: rgba(255, 255, 255, 0.7);
+            --v0-card-foreground: #111827;
+            --v0-radius: 0.75rem;
+            --v0-radius-lg: 1rem;
+            --v0-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            --v0-gradient-start: #667eea;
+            --v0-gradient-end: #764ba2;
+            --v0-glass-bg: rgba(255, 255, 255, 0.25);
+            --v0-glass-border: rgba(255, 255, 255, 0.4);
         }
         body { 
             padding-top: 2rem; 
             padding-bottom: 4rem; 
-            background-color: var(--v0-muted); /* Use muted for page background */
+            min-height: 100vh;
+            background: linear-gradient(135deg, #e8eaf6 0%, #f3e5f5 25%, #e1f5fe 50%, #f3e5f5 75%, #e8eaf6 100%);
+            background-attachment: fixed;
             color: var(--v0-foreground);
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; /* Tailwind default font stack */
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
         }
         .container { max-width: 1140px; margin: 0 auto; }
         
-        /* Card Styles */
+        /* Card Styles - Glassmorphism */
         .card { 
-            background-color: var(--v0-card);
+            background: var(--v0-card);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
             color: var(--v0-card-foreground);
-            border: 1px solid var(--v0-border); 
-            border-radius: var(--v0-radius-lg); /* Larger radius */
-            box-shadow: var(--v0-shadow); /* Use shadow variable */
+            border: 1px solid var(--v0-glass-border); 
+            border-radius: var(--v0-radius-lg);
+            box-shadow: var(--v0-shadow);
             margin-bottom: 1.5rem;
         }
         .card-header {
-            background-color: var(--v0-card); 
-            border-bottom: 1px solid var(--v0-border);
-            padding: 1rem 1.5rem; /* Increased padding */
-            font-weight: 600; /* Bolder header */
-            border-radius: var(--v0-radius-lg) var(--v0-radius-lg) 0 0; /* Match card radius */
+            background: rgba(255, 255, 255, 0.3); 
+            border-bottom: 1px solid var(--v0-glass-border);
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            border-radius: var(--v0-radius-lg) var(--v0-radius-lg) 0 0;
         }
         .card-body { padding: 1.5rem; }
         .card-footer { 
-            background-color: var(--v0-muted); 
-            border-top: 1px solid var(--v0-border);
+            background: rgba(255, 255, 255, 0.2); 
+            border-top: 1px solid var(--v0-glass-border);
             color: var(--v0-muted-foreground);
-            padding: 0.75rem 1.5rem; /* Match header padding */
-            border-radius: 0 0 var(--v0-radius-lg) var(--v0-radius-lg); /* Match card radius */
+            padding: 0.75rem 1.5rem;
+            border-radius: 0 0 var(--v0-radius-lg) var(--v0-radius-lg);
         }
         .card img { 
-            max-height: 180px; /* Slightly smaller max height */
+            max-height: 180px;
             object-fit: contain; 
-            border-radius: calc(var(--v0-radius-lg) - 1px) calc(var(--v0-radius-lg) - 1px) 0 0; /* Match card radius */
+            border-radius: calc(var(--v0-radius-lg) - 1px) calc(var(--v0-radius-lg) - 1px) 0 0;
         }
         
         /* Button Styles */
@@ -986,42 +995,145 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
         }
 
         /* Other Styles */
-        .p-5 { padding: 3rem !important; } /* Increased padding */
+        .p-5 { padding: 3rem !important; }
         .py-5 { padding-top: 3rem !important; padding-bottom: 3rem !important; }
         .mb-4 { margin-bottom: 1.5rem !important; }
         .mt-4 { margin-top: 1.5rem !important; }
         .mt-3 { margin-top: 1rem !important; }
         .mt-2 { margin-top: 0.5rem !important; }
-        .bg-light { background-color: var(--v0-card) !important; border: 1px solid var(--v0-border); } /* Use card bg and add border */
-        .rounded-3 { border-radius: var(--v0-radius-lg) !important; } /* Use large radius */
+        /* Hero Section - Glassmorphism */
+        .bg-light { 
+            background: var(--v0-card) !important; 
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid var(--v0-glass-border); 
+            box-shadow: var(--v0-shadow);
+        }
+        .rounded-3 { border-radius: var(--v0-radius-lg) !important; }
         .text-muted { color: var(--v0-muted-foreground) !important; }
-        .fw-bold { font-weight: 600 !important; } 
-        .display-5 { font-size: 2.25rem; font-weight: 700; } /* Slightly smaller, bolder */
-        .fs-4 { font-size: 1.125rem; line-height: 1.75rem; } /* Adjusted size and line height */
+        .fw-bold { font-weight: 700 !important; } 
+        /* Gradient Title */
+        .display-5 { 
+            font-size: 2.5rem; 
+            font-weight: 700; 
+            background: linear-gradient(135deg, var(--v0-gradient-start) 0%, var(--v0-gradient-end) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .fs-4 { font-size: 1.125rem; line-height: 1.75rem; color: #4b5563; }
         h1, h2, h3, h5 { font-weight: 600; color: var(--v0-foreground); }
-        h2.h5 { font-size: 1rem; font-weight: 600; } /* Adjust size for card headers */
+        h2.h5 { font-size: 1rem; font-weight: 600; }
         hr.my-1 { margin-top: 0.25rem !important; margin-bottom: 0.25rem !important; opacity: 0.1;}
-        .badge { border-radius: 0.375rem; padding: 0.25em 0.6em; font-weight: 500; font-size: 0.75rem; } /* Smaller badge */
+        .badge { border-radius: 0.375rem; padding: 0.25em 0.6em; font-weight: 500; font-size: 0.75rem; }
         .bg-primary { background-color: var(--v0-primary) !important; color: var(--v0-primary-foreground); }
         .bg-secondary { background-color: var(--v0-secondary) !important; color: var(--v0-secondary-foreground); }
+        /* Admin Button - Outline Style */
+        .btn-admin {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1.5px solid var(--v0-gradient-start);
+            color: var(--v0-gradient-start);
+            border-radius: 1.5rem;
+            padding: 0.4rem 1rem;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .btn-admin:hover {
+            background: linear-gradient(135deg, var(--v0-gradient-start) 0%, var(--v0-gradient-end) 100%);
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transform: translateY(-2px);
+        }
+        .btn-admin i { font-size: 0.9rem; }
+        /* Hero Section Layout */
+        .hero-section {
+            position: relative;
+            padding: 1.5rem 2rem;
+        }
+        .hero-header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .hero-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--v0-gradient-start) 0%, var(--v0-gradient-end) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+        }
+        .hero-admin-btn {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        /* Collapsible Card Styles */
+        .collapsible-card .card-header {
+            transition: background 0.2s;
+        }
+        .collapsible-card .card-header:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        .collapse-icon {
+            transition: transform 0.3s ease;
+            font-size: 0.9rem;
+            color: var(--v0-muted-foreground);
+        }
+        .collapsible-card.expanded .collapse-icon {
+            transform: rotate(90deg);
+        }
+        .llm-prompt-body {
+            transition: all 0.3s ease;
+        }
 
-        /* API Cards Grid Styles */
+        /* API Cards Grid Styles - Glassmorphism */
         .api-cards-grid { margin-top: 2rem; }
         .group-section { margin-bottom: 2rem; }
-        .group-title-home { font-size: 1.25rem; font-weight: 600; color: var(--v0-foreground); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--v0-border); }
+        .group-title-home { 
+            font-size: 1.25rem; 
+            font-weight: 600; 
+            color: var(--v0-foreground); 
+            margin-bottom: 1rem; 
+            padding-bottom: 0.5rem; 
+            border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+        }
         .cards-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
-        .api-card { background: var(--v0-card); border: 1px solid var(--v0-border); border-radius: var(--v0-radius-lg); overflow: hidden; box-shadow: var(--v0-shadow); transition: transform 0.2s, box-shadow 0.2s; }
-        .api-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
+        .api-card { 
+            background: var(--v0-card); 
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid var(--v0-glass-border); 
+            border-radius: var(--v0-radius-lg); 
+            overflow: hidden; 
+            box-shadow: var(--v0-shadow); 
+            transition: transform 0.3s ease, box-shadow 0.3s ease; 
+        }
+        .api-card:hover { 
+            transform: translateY(-6px); 
+            box-shadow: 0 20px 40px -10px rgba(102, 126, 234, 0.25); 
+        }
         .api-card-image { position: relative; height: 200px; overflow: hidden; cursor: pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .api-card-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s, opacity 0.3s; }
         .api-card-image:hover img { transform: scale(1.05); }
         .image-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
         .api-card-image:hover .image-overlay { opacity: 1; }
-        .refresh-hint { color: #fff; font-size: 0.875rem; font-weight: 500; padding: 0.5rem 1rem; background: rgba(0,0,0,0.5); border-radius: var(--v0-radius); }
-        .api-badge { position: absolute; bottom: 0.75rem; right: 0.75rem; background: #ffd700; color: #000; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
-        .api-card-info { padding: 1rem; }
+        .refresh-hint { color: #fff; font-size: 0.875rem; font-weight: 500; padding: 0.5rem 1rem; background: rgba(0,0,0,0.5); border-radius: var(--v0-radius); backdrop-filter: blur(4px); }
+        .api-badge { position: absolute; bottom: 0.75rem; right: 0.75rem; background: rgba(255, 215, 0, 0.9); backdrop-filter: blur(4px); color: #000; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+        .api-card-info { padding: 1rem; background: rgba(255, 255, 255, 0.5); }
         .api-hint { font-size: 0.8rem; color: var(--v0-muted-foreground); margin-bottom: 0.5rem; }
-        .api-url { font-size: 0.8rem; color: #3b82f6; word-break: break-all; margin: 0; }
+        .api-url { font-size: 0.8rem; color: var(--v0-gradient-start); word-break: break-all; margin: 0; }
         .api-url:hover { text-decoration: underline; }
         /* Loading Spinner 样式 */
         .media-loader {
@@ -1053,21 +1165,24 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
 </head>
 <body>
     <main class="container">
-        <div class="p-5 mb-4 bg-light rounded-3">
-          <div class="container-fluid py-5">
-            <h1 class="display-5 fw-bold">API 转发服务</h1>
-            <p class="col-md-8 fs-4">使用此服务转发 API 请求。所有配置均可通过管理页面动态修改。</p>
-             <a href="/admin" class="btn btn-primary btn-lg" role="button"><i class="bi bi-gear-fill"></i> 前往管理页面</a>
-          </div>
+        <div class="mb-4 bg-light rounded-3 hero-section">
+            <div class="hero-header">
+                <h1 class="hero-title">API 转发服务</h1>
+                <a href="/admin" class="btn-admin hero-admin-btn" role="button"><i class="bi bi-gear"></i> 管理控制台</a>
+            </div>
         </div>
         
-        <!-- LLM 提示词生成卡片 -->
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0">LLM 提示词</h2>
-                <button id="copy-prompt-btn" class="btn btn-sm btn-outline-primary"><i class="bi bi-clipboard"></i> 复制</button>
+        <!-- LLM 提示词生成卡片 (可折叠) -->
+        <div class="card mb-4 collapsible-card">
+            <div class="card-header d-flex justify-content-between align-items-center" style="cursor: pointer;" onclick="toggleLLMPrompt(this)">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-chevron-right collapse-icon"></i>
+                    <i class="bi bi-cpu"></i>
+                    <h2 class="h5 mb-0">LLM 提示词集成指南</h2>
+                </div>
+                <button id="copy-prompt-btn" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation();"><i class="bi bi-clipboard"></i> 复制</button>
             </div>
-            <div class="card-body">
+            <div class="card-body llm-prompt-body" style="display: none;">
                 <div class="alert alert-info mb-2">
                     <small><i class="bi bi-info-circle"></i> 以下是自动生成的 LLM 提示词，适合嵌入到 YAML 文件中。每行都有适当的缩进，复制后可直接粘贴到配置文件中。</small>
                 </div>
@@ -1087,6 +1202,21 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
     
     <!-- 复制按钮脚本 -->
     <script>
+        // LLM 提示词卡片展开/收缩函数
+        function toggleLLMPrompt(header) {
+            const card = header.closest('.collapsible-card');
+            const body = card.querySelector('.llm-prompt-body');
+            const isExpanded = card.classList.contains('expanded');
+            
+            if (isExpanded) {
+                body.style.display = 'none';
+                card.classList.remove('expanded');
+            } else {
+                body.style.display = 'block';
+                card.classList.add('expanded');
+            }
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
             const promptElement = document.getElementById('llm-prompt');
             const copyButton = document.getElementById('copy-prompt-btn');
@@ -1463,41 +1593,48 @@ app.get('/admin', checkAdminAuth, (req, res) => {
     <!-- Pinyin Library for Emoticon Fetching (using unpkg) -->
     <script src="https://unpkg.com/pinyin-pro@3.26.0/dist/index.js"></script>
     <style>
-        /* v0 Style Adjustments */
+        /* v0 Style Adjustments - Mica/Glassmorphism */
         :root {
-            --v0-background: #ffffff; /* White background */
-            --v0-foreground: #09090b; /* Near black text */
-            --v0-muted: #f8fafc; /* Very light slate */
-            --v0-muted-foreground: #64748b; /* Slate-500 */
-            --v0-border: #e2e8f0; /* Slate-200 */
-            --v0-input: #cbd5e1; /* Slate-300 */
-            --v0-primary: #0f172a; /* Slate-900 */
-            --v0-primary-foreground: #ffffff; /* White */
-            --v0-secondary: #f1f5f9; /* Slate-100 */
-            --v0-secondary-foreground: #0f172a; /* Slate-900 */
-            --v0-destructive: #ef4444; /* Red-500 */
+            --v0-background: #ffffff;
+            --v0-foreground: #111827;
+            --v0-muted: rgba(249, 250, 251, 0.7);
+            --v0-muted-foreground: #6b7280;
+            --v0-border: rgba(255, 255, 255, 0.3);
+            --v0-border-solid: #e5e7eb;
+            --v0-input: #d1d5db;
+            --v0-primary: #111827;
+            --v0-primary-foreground: #ffffff;
+            --v0-secondary: rgba(255, 255, 255, 0.6);
+            --v0-secondary-foreground: #1f2937;
+            --v0-card: rgba(255, 255, 255, 0.7);
+            --v0-card-foreground: #111827;
+            --v0-radius: 0.75rem;
+            --v0-radius-lg: 1rem;
+            --v0-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            --v0-shadow-sm: 0 2px 8px 0 rgba(31, 38, 135, 0.1);
+            --v0-shadow-lg: 0 12px 48px 0 rgba(31, 38, 135, 0.2);
+            --v0-gradient-start: #667eea;
+            --v0-gradient-end: #764ba2;
+            --v0-glass-bg: rgba(255, 255, 255, 0.25);
+            --v0-glass-border: rgba(255, 255, 255, 0.4);
+            --v0-destructive: #ef4444;
             --v0-destructive-foreground: #ffffff;
             --v0-success: #22c55e;
             --v0-success-foreground: #ffffff;
-            --v0-card: #ffffff;
-            --v0-card-foreground: #020617; /* Slate-950 */
-            --v0-radius: 0.5rem;
-            --v0-radius-lg: 0.75rem;
-            --v0-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --v0-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --v0-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
         body { 
-            background-color: var(--v0-muted); 
-            padding-top: 3rem; 
+            padding-top: 2rem; 
             padding-bottom: 5rem; 
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #e8eaf6 0%, #f3e5f5 25%, #e1f5fe 50%, #f3e5f5 75%, #e8eaf6 100%);
+            background-attachment: fixed;
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
             color: var(--v0-foreground);
             line-height: 1.5;
         }
         .container { 
-            max-width: 1000px; /* Limit width for cleaner look */
-            margin: 0 auto;    /* Center */
+            max-width: 1000px;
+            margin: 0 auto;
             padding: 0 1.5rem;
         }
         
@@ -2265,7 +2402,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
                      </div>
                 </div>\`;
              if (apiKey === 'forward') {
-                 const input = proxySettingsDiv.querySelector(\`#\${apiKey}-imageUrlField\`);
+                 const input = proxySettingsDiv.querySelector('[id="' + apiKey + '-imageUrlField"]');
                  if(input) input.value = "(由 'field' 参数决定)";
              }
 
@@ -2311,7 +2448,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
 
 
             // Event listener to toggle proxy settings visibility
-            const methodSelect = cardBody.querySelector(\`#\${apiKey}-method\`);
+            const methodSelect = cardBody.querySelector('[id="' + apiKey + '-method"]');
             methodSelect.addEventListener('change', (event) => {
                 proxySettingsDiv.style.display = event.target.value === 'proxy' ? 'block' : 'none';
             });

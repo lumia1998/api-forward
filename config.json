@@ -1,5 +1,4 @@
 {
-  "baseTag": "",
   "apiUrls": {
     "ycy": {
       "group": "默认分组",
@@ -122,17 +121,6 @@
         "fallbackAction": "returnJson"
       }
     },
-    "baisivideo": {
-      "group": "默认分组",
-      "description": "黑丝视频",
-      "url": "http://api.yujn.cn/api/heisis.php",
-      "method": "redirect",
-      "type": "image",
-      "queryParams": [],
-      "proxySettings": {
-        "fallbackAction": "returnJson"
-      }
-    },
     "cos": {
       "group": "默认分组",
       "description": "cos视频",
@@ -143,6 +131,18 @@
       "proxySettings": {
         "fallbackAction": "returnJson"
       }
+    },
+    "asda": {
+      "group": "默认分组",
+      "description": "324",
+      "url": "https://t.alcy.cc/ycy",
+      "method": "redirect",
+      "type": "image",
+      "queryParams": [],
+      "proxySettings": {
+        "fallbackAction": "returnJson"
+      }
     }
-  }
+  },
+  "baseTag": ""
 }
