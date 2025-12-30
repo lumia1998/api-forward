@@ -89,5 +89,5 @@ GET /nailong
 ## GitHub 仓库
 
 ```text
-https://github.com/lumia1998/api
+https://github.com/lumia1998/api-forward
 ```
