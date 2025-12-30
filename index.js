@@ -766,39 +766,26 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
             const key = entry.key;
             const description = entry.description || key;
             const apiUrl = `${baseURL}/${key}`;
-            const type = entry.type || 'image';
-
-            if (type === 'video') {
-                apiCardsHtml += `
-                <div class="api-card">
-                    <div class="api-card-image" onclick="window.open('${apiUrl}', '_blank')" style="background: #000; display: flex; align-items: center; justify-content: center;">
-                        <i class="bi bi-play-circle-fill" style="font-size: 64px; color: rgba(255,255,255,0.8);"></i>
-                        <span class="api-badge" style="background: rgba(0,0,0,0.6); color: #fff; top: 0.75rem; right: 0.75rem; bottom: auto;">VIDEO</span>
+            // 统一使用图片加载逻辑，如果是视频会自动切换
+            apiCardsHtml += `
+            <div class="api-card">
+                <div class="api-card-image" onclick="refreshImage(this, '${apiUrl}')">
+                    <div class="media-loader">
+                        <div class="loader-spinner"></div>
+                        <span>加载中...</span>
                     </div>
-                    <div class="api-card-info">
-                        <p class="api-hint"><i class="bi bi-box-arrow-up-right"></i> 点击在新标签页播放</p>
-                        <p class="api-url">${apiUrl}</p>
+                    <img src="${apiUrl}?t=${Date.now()}" alt="${description}" loading="lazy" onload="hideLoader(this)" onerror="handleMediaError(this, '${apiUrl}')">
+                    <div class="image-overlay">
+                        <span class="refresh-hint"><i class="bi bi-arrow-clockwise"></i> 点击刷新</span>
                     </div>
+                    <span class="api-badge">${description}</span>
                 </div>
-                `;
-            } else {
-                // Image Type (Default)
-                apiCardsHtml += `
-                <div class="api-card">
-                    <div class="api-card-image" onclick="refreshImage(this, '${apiUrl}')">
-                        <img src="${apiUrl}?t=${Date.now()}" alt="${description}" loading="lazy" onerror="handleMediaError(this, '${apiUrl}')">
-                        <div class="image-overlay">
-                            <span class="refresh-hint"><i class="bi bi-arrow-clockwise"></i> 点击刷新</span>
-                        </div>
-                        <span class="api-badge">${description}</span>
-                    </div>
-                    <div class="api-card-info">
-                        <p class="api-hint">👆点击图片可刷新预览</p>
-                        <p class="api-url">${apiUrl}</p>
-                    </div>
+                <div class="api-card-info">
+                    <p class="api-hint">👆点击图片可刷新预览</p>
+                    <p class="api-url">${apiUrl}</p>
                 </div>
-                `;
-            }
+            </div>
+            `;
         });
 
         apiCardsHtml += `</div></div>`; // Close cards-row and group-section
@@ -1036,6 +1023,32 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
         .api-hint { font-size: 0.8rem; color: var(--v0-muted-foreground); margin-bottom: 0.5rem; }
         .api-url { font-size: 0.8rem; color: #3b82f6; word-break: break-all; margin: 0; }
         .api-url:hover { text-decoration: underline; }
+        /* Loading Spinner 样式 */
+        .media-loader {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            font-size: 0.875rem;
+            z-index: 1;
+        }
+        .media-loader.hidden { display: none; }
+        .loader-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 0.5rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -1102,6 +1115,14 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
             }
         });
         
+        // 图片加载成功时隐藏 loader
+        function hideLoader(mediaElement) {
+            const loader = mediaElement.parentNode.querySelector('.media-loader');
+            if (loader) {
+                loader.classList.add('hidden');
+            }
+        }
+
         // 处理图片加载错误，尝试切换为视频
         function handleMediaError(imgElement, apiUrl) {
             // 防止重复处理
@@ -1109,6 +1130,9 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
             imgElement.dataset.hasError = 'true';
 
             console.log('Image load failed, trying video for:', apiUrl);
+
+            const parent = imgElement.parentNode;
+            const loader = parent.querySelector('.media-loader');
 
             // 创建 video 元素
             const video = document.createElement('video');
@@ -1118,18 +1142,28 @@ ${pathFunctions.map(path => `    - ${path}`).join('\n')}
             video.loop = true;
             video.playsInline = true;
             
-            // 复制 img 的样式类 (虽然这里主要用行内样式，但保持一致性)
+            // 复制 img 的样式类
             video.style.width = '100%';
             video.style.height = '100%';
             video.style.objectFit = 'cover';
             
+            // 视频加载成功后隐藏 loader
+            video.onloadeddata = function() {
+                console.log('Video loaded successfully for:', apiUrl);
+                if (loader) {
+                    loader.classList.add('hidden');
+                }
+            };
+            
             // 替换 img 元素
-            const parent = imgElement.parentNode;
             parent.replaceChild(video, imgElement);
             
-            // 如果视频也加载失败，显示原来的错误占位图
+            // 如果视频也加载失败，显示错误占位图并隐藏 loader
             video.onerror = function() {
                 console.log('Video also failed for:', apiUrl);
+                if (loader) {
+                    loader.classList.add('hidden');
+                }
                 const errorImg = document.createElement('img');
                 errorImg.src = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22150%22><rect fill=%22%23f0f0f0%22 width=%22200%22 height=%22150%22/><text fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22>加载失败</text></svg>';
                 errorImg.style.width = '100%';
@@ -1757,7 +1791,6 @@ app.get('/admin', checkAdminAuth, (req, res) => {
                      <button type="button" class="btn btn-outline-secondary view-toggle-btn" id="table-view-btn" onclick="switchView('table')" title="表格视图"><i class="bi bi-table"></i></button>
                      <button type="button" class="btn btn-outline-secondary view-toggle-btn active" id="card-view-btn" onclick="switchView('card')" title="卡片视图"><i class="bi bi-card-text"></i></button>
                  </div>
-                 <button type="button" class="btn btn-info fetch-emoticons-button" onclick="fetchAndAddEmoticons(this)" disabled><i class="bi bi-cloud-download"></i> 在线拉取表情包</button>
                  <button type="button" class="btn btn-secondary" onclick="addNewGroup()"><i class="bi bi-folder-plus"></i> 添加新分组</button>
                  <button type="button" class="btn btn-success add-endpoint-button" onclick="addApiEndpoint()"><i class="bi bi-plus-lg"></i> 添加新 API 端点</button>
                  <a href="/admin-logout" class="btn btn-outline-secondary"><i class="bi bi-box-arrow-right"></i> 退出登录</a>

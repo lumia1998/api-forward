@@ -1,4 +1,5 @@
 {
+  "baseTag": "",
   "apiUrls": {
     "ycy": {
       "group": "默认分组",
@@ -60,7 +61,7 @@
       "description": "acg动图",
       "url": "https://t.alcy.cc/acg",
       "method": "redirect",
-      "type": "video",
+      "type": "image",
       "queryParams": [],
       "proxySettings": {
         "fallbackAction": "returnJson"
@@ -104,7 +105,7 @@
       "description": "甜妹视频",
       "url": "https://v2.api-m.com/api/meinv?return=302",
       "method": "redirect",
-      "type": "video",
+      "type": "image",
       "queryParams": [],
       "proxySettings": {
         "fallbackAction": "returnJson"
@@ -115,7 +116,7 @@
       "description": "白丝视频",
       "url": "http://api.yujn.cn/api/baisis.php",
       "method": "redirect",
-      "type": "video",
+      "type": "image",
       "queryParams": [],
       "proxySettings": {
         "fallbackAction": "returnJson"
@@ -126,7 +127,7 @@
       "description": "黑丝视频",
       "url": "http://api.yujn.cn/api/heisis.php",
       "method": "redirect",
-      "type": "video",
+      "type": "image",
       "queryParams": [],
       "proxySettings": {
         "fallbackAction": "returnJson"
@@ -143,6 +144,5 @@
         "fallbackAction": "returnJson"
       }
     }
-  },
-  "baseTag": ""
+  }
 }
