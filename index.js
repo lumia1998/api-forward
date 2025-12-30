@@ -22,14 +22,7 @@ try {
     db = new Database(dbPath);
     console.log(`SQLite database initialized at: ${dbPath}`);
 
-    // 创建旧配置表(如果不存在) - 用于兼容和迁移
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS config (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
-            data TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
+
 
     // 创建新的规范化表结构
     db.exec(`
@@ -79,37 +72,17 @@ try {
 
     console.log('Database tables initialized.');
 
-    // 数据迁移：从旧的 JSON 格式迁移到新表
-    migrateFromJsonToTables();
+
 
 } catch (error) {
     console.error('Failed to initialize SQLite database:', error);
     process.exit(1);
 }
 
-// 数据迁移函数
-function migrateFromJsonToTables() {
-    try {
-        // 检查是否需要迁移：旧表有数据但新表为空
-        const oldConfigRow = db.prepare('SELECT data FROM config WHERE id = 1').get();
-        const endpointCount = db.prepare('SELECT COUNT(*) as count FROM api_endpoints').get();
 
-        if (oldConfigRow && oldConfigRow.data && endpointCount.count === 0) {
-            console.log('Starting migration from JSON to normalized tables...');
 
-            const oldConfig = JSON.parse(oldConfigRow.data);
-
-            // 使用事务确保数据一致性
-            const migrate = db.transaction(() => {
-                // 迁移全局设置
-                const insertGlobalSettings = db.prepare(`
-                    INSERT OR REPLACE INTO global_settings (id, base_tag, updated_at)
-                    VALUES (1, ?, datetime('now'))
-                `);
-                insertGlobalSettings.run(oldConfig.baseTag || '');
-
-                // 迁移 API 端点
-                const insertEndpoint = db.prepare(`
+// 迁移 API 端点
+const insertEndpoint = db.prepare(`
                     INSERT INTO api_endpoints (
                         api_key, group_name, description, url, method,
                         url_construction, model_name,
@@ -118,58 +91,13 @@ function migrateFromJsonToTables() {
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `);
 
-                const insertParam = db.prepare(`
+const insertParam = db.prepare(`
                     INSERT INTO query_params (
                         endpoint_id, name, description, required, default_value, valid_values, sort_order
                     ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 `);
 
-                const apiUrls = oldConfig.apiUrls || {};
-                for (const [apiKey, config] of Object.entries(apiUrls)) {
-                    // 插入端点
-                    const result = insertEndpoint.run(
-                        apiKey,
-                        config.group || '默认分组',
-                        config.description || '',
-                        config.url || '',
-                        config.method || 'redirect',
-                        config.urlConstruction || null,
-                        config.modelName || null,
-                        config.proxySettings?.imageUrlField || null,
-                        config.proxySettings?.imageUrlFieldFromParam ? 1 : 0,
-                        config.proxySettings?.fallbackAction || 'returnJson',
-                        config.type || 'image'
-                    );
 
-                    const endpointId = result.lastInsertRowid;
-
-                    // 插入查询参数
-                    const queryParams = config.queryParams || [];
-                    queryParams.forEach((param, index) => {
-                        insertParam.run(
-                            endpointId,
-                            param.name || '',
-                            param.description || '',
-                            param.required ? 1 : 0,
-                            param.defaultValue || null,
-                            param.validValues ? JSON.stringify(param.validValues) : null,
-                            index
-                        );
-                    });
-                }
-            });
-
-            migrate();
-            console.log(`Migration completed. Migrated ${Object.keys(oldConfig.apiUrls || {}).length} endpoints.`);
-        } else if (endpointCount.count > 0) {
-            console.log('Data already exists in new tables, skipping migration.');
-        } else {
-            console.log('No data to migrate.');
-        }
-    } catch (error) {
-        console.error('Migration error:', error);
-    }
-}
 
 // --- 环境配置 ---
 // 是否允许文件操作(默认允许,用于本地部署)
