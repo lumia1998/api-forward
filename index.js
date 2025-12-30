@@ -1378,61 +1378,69 @@ app.get('/admin-login', (req, res) => {
     <title>API 转发管理登录</title>
     <link rel="stylesheet" href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/twitter-bootstrap/5.1.3/css/bootstrap.min.css">
     <style>
-        /* v0 Style Adjustments */
+        /* Mica / Glassmorphism Style (Unified) */
         :root {
-            --v0-background: #ffffff; /* White background */
-            --v0-foreground: #09090b; /* Near black text */
-            --v0-muted: #f9fafb; /* Lighter gray (Tailwind gray-50) */
-            --v0-muted-foreground: #6b7280; /* Medium gray (Tailwind gray-500) */
-            --v0-border: #e5e7eb; /* Light gray border (Tailwind gray-200) */
-            --v0-input: #d1d5db; /* Input border (Tailwind gray-300) */
-            --v0-primary: #111827; /* Dark gray (Tailwind gray-900) */
-            --v0-primary-foreground: #ffffff; /* White */
-            --v0-destructive: #ef4444; /* Red (Tailwind red-500) */
-            --v0-destructive-foreground: #ffffff; /* White */
-            --v0-card: #ffffff; /* Card background */
-            --v0-card-foreground: #111827; /* Card text */
-            --v0-radius: 0.5rem; /* Default border radius */
-            --v0-radius-lg: 0.75rem; /* Larger radius */
-            --v0-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* Subtle shadow */
+            --v0-background: #ffffff;
+            --v0-foreground: #111827;
+            --v0-muted: rgba(249, 250, 251, 0.7);
+            --v0-muted-foreground: #6b7280;
+            --v0-border: rgba(255, 255, 255, 0.3);
+            --v0-border-solid: #e5e7eb;
+            --v0-input: #d1d5db;
+            --v0-primary: #111827;
+            --v0-primary-foreground: #ffffff;
+            --v0-destructive: #ef4444;
+            --v0-destructive-foreground: #ffffff;
+            --v0-card: rgba(255, 255, 255, 0.7);
+            --v0-card-foreground: #111827;
+            --v0-radius: 0.75rem;
+            --v0-radius-lg: 1rem;
+            --v0-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            --v0-gradient-start: #667eea;
+            --v0-gradient-end: #764ba2;
+            --v0-glass-bg: rgba(255, 255, 255, 0.25);
+            --v0-glass-border: rgba(255, 255, 255, 0.4);
         }
         body { 
-            background-color: var(--v0-muted); 
+            background: linear-gradient(135deg, #e8eaf6 0%, #f3e5f5 25%, #e1f5fe 50%, #f3e5f5 75%, #e8eaf6 100%);
+            background-attachment: fixed;
             height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; /* Tailwind default font stack */
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
             color: var(--v0-foreground);
         }
         .login-container {
             max-width: 400px;
             width: 100%;
             padding: 2.5rem; 
-            background-color: var(--v0-card);
-            border-radius: var(--v0-radius-lg); /* Larger radius */
-            border: 1px solid var(--v0-border);
-            box-shadow: var(--v0-shadow); /* Use shadow variable */
+            background: var(--v0-card);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border-radius: var(--v0-radius-lg); 
+            border: 1px solid var(--v0-glass-border);
+            box-shadow: var(--v0-shadow); 
         }
         .login-header {
             text-align: center;
             margin-bottom: 2rem;
         }
         .login-header h2 {
-            font-size: 1.5rem; /* Slightly smaller heading */
+            font-size: 1.5rem; 
             font-weight: 600;
             color: var(--v0-foreground);
             margin-bottom: 0.5rem;
         }
         .login-header p {
             color: var(--v0-muted-foreground);
-            font-size: 0.875rem; /* Smaller text */
+            font-size: 0.875rem; 
         }
         .error-message {
             color: var(--v0-destructive); 
-            background-color: #fef2f2; /* Tailwind red-50 */
-            border: 1px solid #fca5a5; /* Tailwind red-300 */
-            border-radius: var(--v0-radius); /* Standard radius */
+            background-color: #fef2f2; 
+            border: 1px solid #fca5a5; 
+            border-radius: var(--v0-radius); 
             padding: 0.75rem 1rem;
             margin-bottom: 1.5rem;
             font-size: 0.875rem;
@@ -1447,14 +1455,14 @@ app.get('/admin-login', (req, res) => {
         .form-control {
             display: block;
             width: 100%;
-            padding: 0.5rem 0.75rem; /* Adjusted padding */
-            font-size: 0.875rem; /* Smaller font */
+            padding: 0.5rem 0.75rem; 
+            font-size: 0.875rem; 
             font-weight: 400;
             line-height: 1.5;
             color: var(--v0-foreground);
             background-color: var(--v0-background);
             background-clip: padding-box;
-            border: 1px solid var(--v0-input);
+            border: 1px solid var(--v0-border-solid);
             appearance: none;
             border-radius: var(--v0-radius);
             transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
@@ -1464,21 +1472,21 @@ app.get('/admin-login', (req, res) => {
             background-color: var(--v0-background);
             border-color: var(--v0-primary); 
             outline: 0;
-            box-shadow: 0 0 0 2px var(--v0-background), 0 0 0 4px var(--v0-primary); /* Modern focus ring */
+            box-shadow: 0 0 0 2px var(--v0-background), 0 0 0 4px var(--v0-primary); 
         }
         .btn {
              border-radius: var(--v0-radius);
-             padding: 0.5rem 1rem; /* Adjusted padding */
-             font-size: 0.875rem; /* Smaller font */
+             padding: 0.5rem 1rem; 
+             font-size: 0.875rem; 
              font-weight: 500;
-             transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+             transition: all 0.15s ease-in-out;
              display: inline-flex; 
              align-items: center;
              justify-content: center;
-             line-height: 1.25rem; /* Consistent height */
+             line-height: 1.25rem; 
              border: 1px solid transparent;
         }
-         .btn:focus-visible { /* Modern focus ring */
+         .btn:focus-visible { 
              outline: 2px solid transparent;
              outline-offset: 2px;
              box-shadow: 0 0 0 2px var(--v0-background), 0 0 0 4px var(--v0-primary);
@@ -1489,12 +1497,12 @@ app.get('/admin-login', (req, res) => {
             color: var(--v0-primary-foreground);
         }
         .btn-primary:hover {
-            background-color: #374151; /* Tailwind gray-700 */
+            background-color: #374151; 
             border-color: #374151;
             color: var(--v0-primary-foreground);
         }
         .w-100 { width: 100% !important; }
-        .mb-3 { margin-bottom: 1rem !important; } /* Reduced margin */
+        .mb-3 { margin-bottom: 1rem !important; } 
     </style>
 </head>
 <body>
@@ -1593,7 +1601,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
     <!-- Pinyin Library for Emoticon Fetching (using unpkg) -->
     <script src="https://unpkg.com/pinyin-pro@3.26.0/dist/index.js"></script>
     <style>
-        /* v0 Style Adjustments - Mica/Glassmorphism */
+        /* Mica / Glassmorphism Style (Unified with Frontend) */
         :root {
             --v0-background: #ffffff;
             --v0-foreground: #111827;
@@ -1642,22 +1650,24 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         h1, h2, h3, h4, h5 { font-weight: 600; letter-spacing: -0.025em; color: var(--v0-primary); }
         h1 { font-size: 1.875rem; line-height: 2.25rem; }
         
-        /* Card Styles */
+        /* Card Styles - Glassmorphism */
         .card { 
-            background-color: var(--v0-card);
+            background: var(--v0-card);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
             color: var(--v0-card-foreground);
-            border: 1px solid var(--v0-border); 
-            border-radius: var(--v0-radius-lg); 
-            box-shadow: var(--v0-shadow); /* Modern shadow */
+            border: 1px solid var(--v0-glass-border); 
+            border-radius: var(--v0-radius-lg);
+            box-shadow: var(--v0-shadow);
             margin-bottom: 2rem; 
-            overflow: hidden; /* Ensure rounded corners clip content */
+            overflow: hidden;
             transition: box-shadow 0.2s, transform 0.2s;
         }
-        .card:hover { box-shadow: var(--v0-shadow-lg); } /* Lift effect on hover */
+        .card:hover { box-shadow: var(--v0-shadow-lg); }
 
         .card-header { 
-            background-color: #fff; /* Clean white header */
-            border-bottom: 1px solid var(--v0-border);
+            background: rgba(255, 255, 255, 0.3);
+            border-bottom: 1px solid var(--v0-glass-border);
             padding: 1.25rem 1.5rem; 
             display: flex; 
             justify-content: space-between; 
@@ -1692,7 +1702,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             font-weight: 500;
             font-size: 0.875rem;
             color: var(--v0-foreground);
-            margin-bottom: 0.375rem; /* Adjusted margin */
+            margin-bottom: 0.375rem;
         }
         .col-form-label { padding-top: calc(0.5rem + 1px); padding-bottom: calc(0.5rem + 1px); font-size: 0.875rem; } 
         .form-control, .form-select {
@@ -1701,32 +1711,32 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             padding: 0.5rem 0.75rem; 
             font-size: 0.875rem; 
             font-weight: 400;
-            line-height: 1.25rem; /* Consistent line height */
+            line-height: 1.25rem;
             color: var(--v0-foreground);
             background-color: var(--v0-background);
             background-clip: padding-box;
-            border: 1px solid var(--v0-input);
+            border: 1px solid var(--v0-border-solid); /* Use solid border for inputs */
             appearance: none;
             border-radius: var(--v0-radius); 
             transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
         }
-        textarea.form-control { min-height: calc(1.25rem * 3 + 1rem + 2px); } /* Adjust based on line height */
+        textarea.form-control { min-height: calc(1.25rem * 3 + 1rem + 2px); }
         .form-control:focus, .form-select:focus {
             color: var(--v0-foreground);
             background-color: var(--v0-background);
             border-color: var(--v0-primary);
             outline: 0;
-            box-shadow: 0 0 0 2px var(--v0-background), 0 0 0 4px var(--v0-primary); /* Modern focus ring */
+            box-shadow: 0 0 0 2px var(--v0-background), 0 0 0 4px var(--v0-primary);
         }
         .form-control[readonly] {
              background-color: var(--v0-muted);
-             opacity: 0.7; /* Slightly faded */
+             opacity: 0.7;
              cursor: not-allowed;
         }
         .form-check-input {
-             width: 1em; /* Standard size */
+             width: 1em;
              height: 1em;
-             margin-top: 0.25em; /* Adjust alignment */
+             margin-top: 0.25em;
              border-radius: 0.25em;
              border: 1px solid var(--v0-input);
         }
@@ -1740,9 +1750,9 @@ app.get('/admin', checkAdminAuth, (req, res) => {
              border-color: var(--v0-primary);
         }
         .form-switch .form-check-input {
-             width: 2em; /* Standard switch width */
+             width: 2em;
              margin-left: -2.5em;
-             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(107, 114, 128, 0.25)'/%3e%3c/svg%3e"); /* Gray-500 at 25% opacity */
+             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(107, 114, 128, 0.25)'/%3e%3c/svg%3e");
              background-position: left center;
              border-radius: 2em;
              transition: background-position .15s ease-in-out;
@@ -1754,7 +1764,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
              background-position: right center;
              background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e"); 
         }
-        .form-check-label { font-size: 0.875rem; padding-left: 0.5em; } /* Add padding for switch */
+        .form-check-label { font-size: 0.875rem; padding-left: 0.5em; }
         
         /* Buttons */
         .btn {
@@ -1762,15 +1772,15 @@ app.get('/admin', checkAdminAuth, (req, res) => {
              padding: 0.5rem 1rem; 
              font-size: 0.875rem;
              font-weight: 500;
-             transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, color 0.15s ease-in-out, opacity 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+             transition: all 0.15s ease-in-out;
              display: inline-flex;
              align-items: center;
              justify-content: center;
-             gap: 0.375rem; /* Reduced gap */
-             line-height: 1.25rem; /* Consistent height */
+             gap: 0.375rem;
+             line-height: 1.25rem;
              border: 1px solid transparent;
         }
-         .btn:focus-visible { /* Modern focus ring */
+         .btn:focus-visible {
              outline: 2px solid transparent;
              outline-offset: 2px;
              box-shadow: 0 0 0 2px var(--v0-background), 0 0 0 4px var(--v0-primary);
@@ -1778,18 +1788,18 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         .btn-primary {
             background-color: var(--v0-primary); border-color: var(--v0-primary); color: var(--v0-primary-foreground);
         }
-        .btn-primary:hover { background-color: #374151; border-color: #374151; color: var(--v0-primary-foreground); } /* Tailwind gray-700 */
+        .btn-primary:hover { background-color: #374151; border-color: #374151; color: var(--v0-primary-foreground); }
         .btn-primary:disabled { background-color: var(--v0-primary); border-color: var(--v0-primary); color: var(--v0-primary-foreground); opacity: 0.5; cursor: not-allowed; }
         
         .btn-success { 
             background-color: var(--v0-success); border-color: var(--v0-success); color: var(--v0-success-foreground);
         }
-        .btn-success:hover { background-color: #16a34a; border-color: #16a34a; } /* Tailwind green-600 */
+        .btn-success:hover { background-color: #16a34a; border-color: #16a34a; }
         
         .btn-danger { 
             background-color: var(--v0-destructive); border-color: var(--v0-destructive); color: var(--v0-destructive-foreground);
         }
-        .btn-danger:hover { background-color: #dc2626; border-color: #dc2626; } /* Tailwind red-600 */
+        .btn-danger:hover { background-color: #dc2626; border-color: #dc2626; }
         
         .btn-outline-secondary { 
              color: var(--v0-secondary-foreground);
@@ -1802,9 +1812,9 @@ app.get('/admin', checkAdminAuth, (req, res) => {
              color: var(--v0-secondary-foreground);
          }
         
-        .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.75rem; border-radius: var(--v0-radius-sm); gap: 0.25rem; }
-        .btn-lg { padding: 0.625rem 1.25rem; font-size: 1rem; } /* Adjusted large button */
-        .save-button .spinner-border { width: 1em; height: 1em; border-width: .15em; } /* Thinner spinner */
+        .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.75rem; border-radius: var(--v0-radius); gap: 0.25rem; }
+        .btn-lg { padding: 0.625rem 1.25rem; font-size: 1rem; }
+        .save-button .spinner-border { width: 1em; height: 1em; border-width: .15em; }
 
         /* Specific Sections */
         .proxy-settings, .query-params { 
@@ -1813,11 +1823,11 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             border-top: 1px solid var(--v0-border); 
         }
         .proxy-settings h5, .query-params h5 {
-             font-size: 0.875rem; /* Smaller heading */
+             font-size: 0.875rem;
              font-weight: 600;
              margin-bottom: 1rem;
              color: var(--v0-foreground);
-             text-transform: uppercase; /* Uppercase subheadings */
+             text-transform: uppercase;
              letter-spacing: 0.05em;
         }
         .param-item { 
@@ -1825,7 +1835,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             padding: 1rem; 
             margin-bottom: 1rem; 
             border-radius: var(--v0-radius); 
-            background-color: var(--v0-muted); /* Muted background for param items */
+            background-color: var(--v0-muted);
             position: relative; 
         }
         .param-item .remove-param-button { 
@@ -1833,7 +1843,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
             top: 0.5rem; 
             right: 0.5rem; 
             padding: 0.1rem 0.4rem; 
-            background-color: var(--v0-background); /* Ensure visibility on muted bg */
+            background-color: var(--v0-background);
             border-color: var(--v0-border);
             color: var(--v0-destructive);
         }
@@ -1842,17 +1852,10 @@ app.get('/admin', checkAdminAuth, (req, res) => {
              border-color: var(--v0-destructive);
              color: var(--v0-destructive-foreground);
          }
-        .global-setting-item { 
-            padding: 1rem 1.5rem; 
-            border: 1px solid var(--v0-border); 
-            background-color: var(--v0-muted); 
-            border-radius: var(--v0-radius); 
-            margin-bottom: 1.5rem; 
-        }
         .group-title { 
-            margin-top: 2rem; /* Reduced top margin */
+            margin-top: 2rem; 
             margin-bottom: 1rem; 
-            font-size: 1.125rem; /* Adjusted group title size */
+            font-size: 1.125rem; 
             font-weight: 600;
             color: var(--v0-muted-foreground); 
             border-bottom: 1px solid var(--v0-border); 
@@ -1864,23 +1867,23 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         #message { 
             margin-top: 1.5rem; 
             border-radius: var(--v0-radius);
-            padding: 0.75rem 1rem; /* Adjusted padding */
+            padding: 0.75rem 1rem; 
             font-size: 0.875rem;
         }
         .alert-success {
-             color: #0f5132; /* Tailwind green-800 */
-             background-color: #d1fae5; /* Tailwind green-100 */
-             border-color: #a7f3d0; /* Tailwind green-200 */
+             color: #0f5132; 
+             background-color: #d1fae5; 
+             border-color: #a7f3d0; 
         }
         .alert-danger {
-             color: #991b1b; /* Tailwind red-800 */
-             background-color: #fee2e2; /* Tailwind red-100 */
-             border-color: #fca5a5; /* Tailwind red-300 */
+             color: #991b1b; 
+             background-color: #fee2e2; 
+             border-color: #fca5a5; 
         }
         
         /* Tooltip */
         .tooltip-icon { cursor: help; color: var(--v0-muted-foreground); margin-left: 0.25rem; vertical-align: middle; }
-        .tooltip-inner { background-color: var(--v0-primary); color: var(--v0-primary-foreground); font-size: 0.75rem; padding: 0.375rem 0.625rem; border-radius: var(--v0-radius-sm); box-shadow: var(--v0-shadow); }
+        .tooltip-inner { background-color: var(--v0-primary); color: var(--v0-primary-foreground); font-size: 0.75rem; padding: 0.375rem 0.625rem; border-radius: var(--v0-radius); box-shadow: var(--v0-shadow); }
         .tooltip.bs-tooltip-top .tooltip-arrow::before { border-top-color: var(--v0-primary); }
         .tooltip.bs-tooltip-bottom .tooltip-arrow::before { border-bottom-color: var(--v0-primary); }
         .tooltip.bs-tooltip-start .tooltip-arrow::before { border-left-color: var(--v0-primary); }
@@ -1891,7 +1894,7 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         .mt-4 { margin-top: 1.5rem !important; }
         .text-muted { color: var(--v0-muted-foreground) !important; }
         .text-sm-end { text-align: right !important; } 
-        .h3 { font-size: 1.25rem; font-weight: 600; } /* Smaller main heading */
+        .h3 { font-size: 1.25rem; font-weight: 600; } 
         .spinner-border { color: var(--v0-primary); }
         .spinner-border-sm { width: 1rem; height: 1rem; border-width: 0.15em; }
 
@@ -1902,12 +1905,58 @@ app.get('/admin', checkAdminAuth, (req, res) => {
         .card-view-container { display: block; }
         .card-view-container.hidden { display: none; }
         
-        .api-table { width: 100%; border-collapse: collapse; background: var(--v0-card); border-radius: var(--v0-radius-lg); overflow: hidden; box-shadow: var(--v0-shadow); table-layout: fixed; }
-        .api-table th { background: var(--v0-muted); color: var(--v0-muted-foreground); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 0.5rem; text-align: left; border-bottom: 1px solid var(--v0-border); white-space: nowrap; }
-        .api-table td { padding: 0.5rem 0.5rem; border-bottom: 1px solid var(--v0-border); font-size: 0.875rem; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .api-table tr:hover { background-color: var(--v0-muted); }
-        .api-table .editable-cell { display: block; cursor: text; padding: 0.375rem 0.5rem; border-radius: var(--v0-radius); transition: background-color 0.15s; min-width: 60px; background-color: #f8f9fa; border: 1px solid #dee2e6; overflow: hidden; text-overflow: ellipsis; }
-        .api-table .editable-cell:hover { background-color: #e9ecef; border-color: #ced4da; }
+        /* Glassmorphism Table */
+        .api-table { 
+            width: 100%; 
+            border-collapse: separate; /* Required for border-radius on rows/cells if needed, but separate is better for glass */
+            border-spacing: 0;
+            background: var(--v0-card); 
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border-radius: var(--v0-radius-lg); 
+            overflow: hidden; 
+            box-shadow: var(--v0-shadow); 
+            table-layout: fixed; 
+            border: 1px solid var(--v0-glass-border);
+        }
+        .api-table th { 
+            background: rgba(255, 255, 255, 0.4); 
+            color: var(--v0-muted-foreground); 
+            font-size: 0.75rem; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+            padding: 0.75rem 0.5rem; 
+            text-align: left; 
+            border-bottom: 1px solid var(--v0-glass-border); 
+            white-space: nowrap; 
+        }
+        .api-table td { 
+            padding: 0.5rem 0.5rem; 
+            border-bottom: 1px solid var(--v0-glass-border); 
+            font-size: 0.875rem; 
+            vertical-align: middle; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            color: var(--v0-foreground);
+        }
+        .api-table tr:last-child td { border-bottom: none; }
+        .api-table tr:hover td { background-color: rgba(255, 255, 255, 0.3); }
+        
+        .api-table .editable-cell { 
+            display: block; 
+            cursor: text; 
+            padding: 0.375rem 0.5rem; 
+            border-radius: var(--v0-radius); 
+            transition: background-color 0.15s; 
+            min-width: 60px; 
+            background-color: rgba(255, 255, 255, 0.5); 
+            border: 1px solid transparent; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+        }
+        .api-table .editable-cell:hover { background-color: rgba(255, 255, 255, 0.8); border-color: var(--v0-input); }
         .api-table .editable-cell:focus { outline: none; background-color: #fff; box-shadow: 0 0 0 2px var(--v0-primary); border-color: var(--v0-primary); }
         .api-table .url-cell { max-width: 250px; }
         .api-table .action-cell { white-space: nowrap; text-align: center; }
