@@ -46,28 +46,7 @@ GET /forward?url=https://api-endpoint.com&field=image
 
 通过 `field` 参数指定 JSON 中的图片字段名。
 
-### 二次元图片
 
-```http
-GET /anime1
-GET /anime2
-GET /ba
-```
-
-### 三次元图片
-
-```http
-GET /baisi
-GET /heisi
-```
-
-### 表情包
-
-```http
-GET /doro
-GET /maomao
-GET /nailong
-```
 
 ## 管理界面
 
