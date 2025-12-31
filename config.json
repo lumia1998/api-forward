@@ -1,5 +1,4 @@
 {
-  "baseTag": "",
   "apiUrls": {
     "ycy": {
       "group": "默认分组",
@@ -144,5 +143,6 @@
         "fallbackAction": "returnJson"
       }
     }
-  }
+  },
+  "baseTag": ""
 }

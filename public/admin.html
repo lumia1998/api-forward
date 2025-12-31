@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 转发配置管理</title>
+    <link rel="stylesheet"
+        href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/twitter-bootstrap/5.1.3/css/bootstrap.min.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/css/shared.css">
+    <script src="https://unpkg.com/pinyin-pro@3.26.0/dist/index.js"></script>
+    <style>
+        body {
+            padding-top: 2rem;
+            padding-bottom: 5rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            padding: 0 1.5rem;
+        }
+
+        h1 {
+            font-size: 1.875rem;
+            letter-spacing: -0.025em;
+        }
+
+        .card {
+            margin-bottom: 2rem;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+
+        .card:hover {
+            box-shadow: var(--v0-shadow-lg);
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .api-key-input {
+            font-weight: 600;
+            border: 1px solid transparent;
+            border-radius: var(--v0-radius);
+            padding: 0.25rem 0.5rem;
+            background: var(--v0-secondary);
+            color: var(--v0-primary);
+            margin-left: 0.5rem;
+            min-width: 150px;
+            max-width: 300px;
+            font-size: 1rem;
+        }
+
+        .api-key-input:focus {
+            outline: none;
+            background: #fff;
+            border-color: var(--v0-input);
+        }
+
+        .col-form-label {
+            padding-top: calc(0.5rem + 1px);
+            padding-bottom: calc(0.5rem + 1px);
+            font-size: 0.875rem;
+        }
+
+        textarea.form-control {
+            min-height: calc(1.25rem * 3 + 1rem + 2px);
+        }
+
+        .form-control[readonly] {
+            background-color: var(--v0-muted);
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .form-check-input {
+            width: 1em;
+            height: 1em;
+            margin-top: 0.25em;
+            border-radius: 0.25em;
+            border: 1px solid var(--v0-input);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--v0-primary);
+            border-color: var(--v0-primary);
+        }
+
+        .form-switch .form-check-input {
+            width: 2em;
+            margin-left: -2.5em;
+            border-radius: 2em;
+        }
+
+        .proxy-settings,
+        .query-params {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--v0-border);
+        }
+
+        .proxy-settings h5,
+        .query-params h5 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .param-item {
+            border: 1px solid var(--v0-border);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: var(--v0-radius);
+            background-color: var(--v0-muted);
+            position: relative;
+        }
+
+        .param-item .remove-param-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.1rem 0.4rem;
+            background-color: var(--v0-background);
+            color: var(--v0-destructive);
+        }
+
+        .param-item .remove-param-button:hover {
+            background-color: var(--v0-destructive);
+            color: #fff;
+        }
+
+        .group-title {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--v0-muted-foreground);
+            border-bottom: 1px solid var(--v0-border);
+            padding-bottom: 0.5rem;
+        }
+
+        .group-title:first-of-type {
+            margin-top: 0;
+        }
+
+        #message {
+            margin-top: 1.5rem;
+        }
+
+        .tooltip-icon {
+            cursor: help;
+            color: var(--v0-muted-foreground);
+            margin-left: 0.25rem;
+        }
+
+        /* Table View */
+        .view-toggle-btn.active {
+            background-color: var(--v0-primary);
+            color: var(--v0-primary-foreground);
+        }
+
+        .table-view-container {
+            display: none;
+        }
+
+        .table-view-container.active {
+            display: block;
+        }
+
+        .card-view-container.hidden {
+            display: none;
+        }
+
+        .api-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: var(--v0-card);
+            backdrop-filter: blur(16px) saturate(180%);
+            border-radius: var(--v0-radius-lg);
+            overflow: hidden;
+            box-shadow: var(--v0-shadow);
+            table-layout: fixed;
+            border: 1px solid var(--v0-glass-border);
+        }
+
+        .api-table th {
+            background: rgba(255, 255, 255, 0.4);
+            color: var(--v0-muted-foreground);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid var(--v0-glass-border);
+            white-space: nowrap;
+        }
+
+        .api-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--v0-glass-border);
+            font-size: 0.875rem;
+            vertical-align: middle;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .api-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .api-table tr:hover td {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .api-table .editable-cell {
+            display: block;
+            cursor: text;
+            padding: 0.375rem 0.5rem;
+            border-radius: var(--v0-radius);
+            min-width: 60px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border: 1px solid transparent;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .api-table .editable-cell:hover {
+            background-color: rgba(255, 255, 255, 0.8);
+            border-color: var(--v0-input);
+        }
+
+        .api-table .editable-cell:focus {
+            outline: none;
+            background-color: #fff;
+            box-shadow: 0 0 0 2px var(--v0-primary);
+        }
+
+        .api-table .url-cell {
+            max-width: 250px;
+        }
+
+        .api-table select.form-select-sm {
+            font-size: 0.8rem;
+            padding: 0.25rem 1.5rem 0.25rem 0.5rem;
+        }
+
+        .add-row-btn {
+            width: 100%;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            border: 2px dashed var(--v0-border);
+            background: transparent;
+            color: var(--v0-muted-foreground);
+            border-radius: var(--v0-radius);
+            cursor: pointer;
+        }
+
+        .add-row-btn:hover {
+            border-color: var(--v0-primary);
+            color: var(--v0-primary);
+            background: var(--v0-muted);
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <h1 class="h3 mb-0">API 转发配置管理</h1>
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+                <div class="btn-group me-2" role="group">
+                    <button type="button" class="btn btn-outline-secondary view-toggle-btn" id="table-view-btn"
+                        onclick="switchView('table')" title="表格视图"><i class="bi bi-table"></i></button>
+                    <button type="button" class="btn btn-outline-secondary view-toggle-btn active" id="card-view-btn"
+                        onclick="switchView('card')" title="卡片视图"><i class="bi bi-card-text"></i></button>
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="addNewGroup()"><i
+                        class="bi bi-folder-plus"></i> 添加新分组</button>
+                <button type="button" class="btn btn-success" onclick="addApiEndpoint()"><i class="bi bi-plus-lg"></i>
+                    添加新 API 端点</button>
+                <a href="/admin-logout" class="btn btn-outline-secondary"><i class="bi bi-box-arrow-right"></i> 退出登录</a>
+            </div>
+        </div>
+
+        <p class="text-muted mb-4">在这里修改、添加或删除 API 转发规则。所有更改将在点击"保存所有配置"后立即生效。</p>
+
+        <!-- Batch Actions -->
+        <div id="batch-actions-section" class="card mb-4" style="display: none;">
+            <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="select-all-checkbox"
+                        onchange="toggleSelectAll(this.checked)">
+                    <label class="form-check-label" for="select-all-checkbox">全选/取消</label>
+                </div>
+                <button id="batch-delete-button" type="button" class="btn btn-danger btn-sm"
+                    onclick="batchDeleteEndpoints()" disabled>
+                    <i class="bi bi-trash"></i> 批量删除 (<span id="selected-count">0</span>)
+                </button>
+                <div class="input-group input-group-sm" style="max-width: 300px;">
+                    <label class="input-group-text" for="batch-move-group-select">移动到分组:</label>
+                    <select class="form-select" id="batch-move-group-select" disabled>
+                        <option value="" selected disabled>选择目标分组...</option>
+                    </select>
+                    <button id="batch-move-button" class="btn btn-outline-primary" type="button"
+                        onclick="batchMoveGroup()" disabled>
+                        <i class="bi bi-folder-symlink"></i> 移动
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <form id="config-form">
+            <!-- Table View -->
+            <div id="table-view-container" class="table-view-container">
+                <div class="table-responsive">
+                    <table class="api-table" id="api-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><input type="checkbox" class="form-check-input"
+                                        id="table-select-all" onchange="toggleTableSelectAll(this.checked)"></th>
+                                <th style="width: 140px;">端点路径</th>
+                                <th style="width: 80px;">分组</th>
+                                <th style="width: 120px;">描述</th>
+                                <th>目标 URL</th>
+                                <th style="width: 70px;">类型</th>
+                                <th style="width: 80px;">处理方式</th>
+                                <th style="width: 80px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="api-table-body"></tbody>
+                    </table>
+                </div>
+                <button type="button" class="add-row-btn" onclick="addTableRow()"><i class="bi bi-plus-lg"></i>
+                    添加新行</button>
+            </div>
+
+            <!-- Card View -->
+            <div id="card-view-container" class="card-view-container">
+                <div id="api-configs-container">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status"><span
+                                class="visually-hidden">正在加载...</span></div>
+                        <p class="mt-2">正在加载配置...</p>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 btn-lg save-button mt-4"><i class="bi bi-save"></i>
+                保存所有配置</button>
+        </form>
+        <div id="message" class="alert mt-4" role="alert" style="display: none;"></div>
+    </main>
+
+    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/popper.js/2.11.2/umd/popper.min.js"></script>
+    <script
+        src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/twitter-bootstrap/5.1.3/js/bootstrap.min.js"></script>
+    <script src="/js/admin.js"></script>
+</body>
+
+</html>

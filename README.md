@@ -85,6 +85,7 @@ GET /nailong
 | PORT | 3000 | 服务端口 |
 | DB_PATH | ./data/config.db | 数据库路径 |
 | ENABLE_FILE_OPERATIONS | true | 启用文件操作 |
+| ADMIN_TOKEN | admin | 管理界面登录密码 |
 
 ## GitHub 仓库
 

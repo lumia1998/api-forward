@@ -1,4 +1,4 @@
-version: '3'
+version: '3.8'
 
 services:
   api-forwarder:
@@ -9,8 +9,14 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - PORT=6667  # 容器内部端口
+      - PORT=6667
       - ENABLE_FILE_OPERATIONS=true
       - DB_PATH=/app/data/config.db
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-admin}
     volumes:
-      - ./data:/app/data  # 持久化SQLite数据库文件
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:6667/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

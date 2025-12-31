@@ -2,13 +2,17 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# 复制依赖文件
 COPY package*.json ./
 
-RUN npm install
+# 安装依赖
+RUN npm ci --only=production
 
-COPY . .
+# 复制源代码
+COPY index.js ./
+COPY public ./public/
 
-# 创建数据库目录
+# 创建数据目录
 RUN mkdir -p /app/data
 
 EXPOSE 6667
