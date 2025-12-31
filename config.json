@@ -131,17 +131,6 @@
       "proxySettings": {
         "fallbackAction": "returnJson"
       }
-    },
-    "asda": {
-      "group": "默认分组",
-      "description": "324",
-      "url": "https://t.alcy.cc/ycy",
-      "method": "redirect",
-      "type": "image",
-      "queryParams": [],
-      "proxySettings": {
-        "fallbackAction": "returnJson"
-      }
     }
   },
   "baseTag": ""

@@ -98,14 +98,14 @@ function saveConfig(newConfig) {
 
     try {
         const saveTransaction = db.transaction(() => {
-            db.prepare('INSERT OR REPLACE INTO global_settings (id, base_tag, updated_at) VALUES (1, ?, datetime("now"))').run(newConfig.baseTag || '');
+            db.prepare("INSERT OR REPLACE INTO global_settings (id, base_tag, updated_at) VALUES (1, ?, datetime('now'))").run(newConfig.baseTag || '');
 
             const existingKeys = db.prepare('SELECT api_key FROM api_endpoints').all().map(r => r.api_key);
             const newKeys = Object.keys(newConfig.apiUrls);
 
             existingKeys.filter(k => !newKeys.includes(k)).forEach(k => db.prepare('DELETE FROM api_endpoints WHERE api_key = ?').run(k));
 
-            const upsert = db.prepare('INSERT INTO api_endpoints (api_key, group_name, description, url, method, url_construction, model_name, proxy_image_url_field, proxy_image_url_field_from_param, proxy_fallback_action, type, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime("now")) ON CONFLICT(api_key) DO UPDATE SET group_name=excluded.group_name, description=excluded.description, url=excluded.url, method=excluded.method, url_construction=excluded.url_construction, model_name=excluded.model_name, proxy_image_url_field=excluded.proxy_image_url_field, proxy_image_url_field_from_param=excluded.proxy_image_url_field_from_param, proxy_fallback_action=excluded.proxy_fallback_action, type=excluded.type, updated_at=datetime("now")');
+            const upsert = db.prepare("INSERT INTO api_endpoints (api_key, group_name, description, url, method, url_construction, model_name, proxy_image_url_field, proxy_image_url_field_from_param, proxy_fallback_action, type, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(api_key) DO UPDATE SET group_name=excluded.group_name, description=excluded.description, url=excluded.url, method=excluded.method, url_construction=excluded.url_construction, model_name=excluded.model_name, proxy_image_url_field=excluded.proxy_image_url_field, proxy_image_url_field_from_param=excluded.proxy_image_url_field_from_param, proxy_fallback_action=excluded.proxy_fallback_action, type=excluded.type, updated_at=datetime('now')");
             const deleteParams = db.prepare('DELETE FROM query_params WHERE endpoint_id = ?');
             const insertParam = db.prepare('INSERT INTO query_params (endpoint_id, name, description, required, default_value, valid_values, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
             const getEndpointId = db.prepare('SELECT id FROM api_endpoints WHERE api_key = ?');
